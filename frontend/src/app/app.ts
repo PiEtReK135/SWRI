@@ -21,7 +21,6 @@ export class App {
     { id: 'misja', label: 'Misja' },
     { id: 'agenci', label: 'Agenci' },
     { id: 'kryteria', label: 'Kryteria' },
-    { id: 'prawne', label: 'Prawne' },
     { id: 'kontakt', label: 'Kontakt' },
   ] as const;
 }

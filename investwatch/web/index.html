@@ -1,36 +1,261 @@
 <!doctype html>
 <html lang="pl">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>InvestWatch</title>
-<style>
-:root{font:16px system-ui;color:#182835;background:#eef3f4}*{box-sizing:border-box}body{margin:0}header{background:#102936;color:white;padding:1.4rem max(1rem,calc((100vw - 1150px)/2));white-space:nowrap}main{max-width:1190px;margin:auto;padding:1.5rem;display:grid;grid-template-columns:330px 1fr;gap:1.25rem}section,details{background:white;border:1px solid #ccdadd;border-radius:10px;padding:1rem;margin-bottom:1rem}h1,h2{margin:.35rem 0 .8rem}label{display:block;margin:.7rem 0}input:not([type=checkbox]),select,textarea{width:100%;padding:.45rem;border:1px solid #9aafb4;border-radius:4px}button{cursor:pointer;background:#146447;color:#fff;padding:.5rem .8rem;border:0;border-radius:5px;margin:.15rem}a{color:#115b4c}li{margin:.5rem 0}video,img{max-width:100%;max-height:400px}pre{white-space:pre-wrap;overflow-wrap:anywhere}table{width:100%;text-align:left}td,th{padding:.4rem;border-bottom:1px solid #dde8e9}summary{cursor:pointer}@media(max-width:760px){main{display:block}table{font-size:.8rem}}
-</style>
-<header><strong>InvestWatch</strong> · Przegląd materiałów organicznych</header>
-<main>
-<aside>
-<section><h2>Import materiału</h2>
-<form id="upload">
-<label>Tytuł <input name="title"></label>
-<label>Twórca <input name="creator"></label>
-<label>URL źródła <input type="url" name="url"></label>
-<label>Opis <textarea name="description"></textarea></label>
-<label>Relacja wydawcy <select name="relation"><option value="UNKNOWN">Nieustalona</option><option value="THIRD_PARTY">Podmiot trzeci</option><option value="FIRST_PARTY">Pierwsza strona</option></select></label>
-<label>URL profilu wydawcy <input type="url" name="publisher_url"></label>
-<label>Film lub audio <input type="file" name="video" accept=".mp4,.mp3,.wav,.mov,.webm,.m4a"></label>
-<label>Napisy <input type="file" name="subtitle" accept=".srt,.vtt,.txt"></label>
-<label><input type="checkbox" name="captions_complete" value="true"> Napisy są kompletne</label>
-<label><input type="checkbox" name="rights_confirmed" value="true" required> Mam prawo analizować materiał</label>
-<button>Dodaj do kolejki</button>
-</form><p id="status" role="status"></p></section>
-<div id="tools"></div>
-</aside>
-<div>
-<section><h2>Materiały</h2><div id="filters"></div>
-<table><thead><tr><th>Materiał</th><th>Status</th><th>Moduły</th><th>Zakres danych</th><th>Priorytet</th></tr></thead><tbody id="items"></tbody></table>
-</section>
-<section id="review"><p>Wybierz materiał, aby przejrzeć dowody.</p></section>
-</div>
-</main>
-<script src="/dashboard/app.js" defer></script>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Panel analityczny | SWRI</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font: 100%/1.55 system-ui, -apple-system, sans-serif;
+      color: #0b1a38;
+      background: #f8fbff;
+      --ink: #0b1a38;
+      --muted: #465879;
+      --blue: #174cda;
+      --blue-dark: #12399f;
+      --line: #d7e3fa;
+      --header-gradient: linear-gradient(110deg, #211946, #29266b 60%, #17366a);
+      --surface-gradient: radial-gradient(ellipse at 100% 0%, #d5efed, transparent 56%),
+        linear-gradient(135deg, #f4f2ff, #eff5ff 60%, #f8fbff);
+      --action-gradient: linear-gradient(115deg, #174cda 8%, #2646b8 52%, #08655e);
+      --shell-width: min(75rem, calc(100% - clamp(2rem, 7vw, 6rem)));
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    body { min-height: 100vh; margin: 0; background: var(--surface-gradient); }
+    a { color: var(--blue-dark); font-weight: 650; text-underline-offset: .22em; }
+    :focus-visible { outline: 3px solid var(--blue); outline-offset: 4px; }
+    .shell { width: var(--shell-width); margin-inline: auto; }
+
+    .site-header {
+      border-bottom: 1px solid #39377b;
+      background: var(--header-gradient);
+      color: #fff;
+    }
+
+    .site-header :focus-visible { outline-color: #c5d1ff; }
+
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      min-height: 4.75rem;
+      padding-block: .65rem;
+    }
+
+    .wordmark {
+      display: inline-flex;
+      align-items: center;
+      gap: .65rem;
+      color: #fff;
+      font-size: 1.42rem;
+      font-weight: 820;
+      letter-spacing: -.07em;
+      text-decoration: none;
+    }
+
+    .brand-mark {
+      display: inline-grid;
+      flex: none;
+      width: 1.9rem;
+      aspect-ratio: 1;
+      place-items: center;
+      border: 1px solid #7786e1;
+      border-radius: .44rem;
+      background: linear-gradient(135deg, #5641b5, #2b52ac 62%, #087c77);
+    }
+
+    .brand-mark::before {
+      width: .76rem;
+      aspect-ratio: 1;
+      border: 1.5px solid white;
+      border-radius: 2px;
+      background: radial-gradient(circle, white 1.45px, transparent 1.65px);
+      transform: rotate(45deg);
+      content: '';
+    }
+
+    .home-link {
+      padding: .5rem .95rem;
+      border: 1px solid #8997d7;
+      border-radius: .45rem;
+      background: #f1f3ff;
+      color: #27205e;
+      font-size: .9rem;
+      text-decoration: none;
+    }
+
+    .home-link:hover { border-color: #bcefe9; background: #dbf4f0; }
+
+    main { padding-block: clamp(2rem, 4.8vw, 4.15rem); }
+    .page-intro { margin-bottom: clamp(1.4rem, 3.5vw, 2.5rem); }
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: clamp(2.25rem, 5vw, 3.9rem); line-height: 1.04; letter-spacing: -.06em; }
+    h2 { margin-bottom: .9rem; font-size: 1.35rem; line-height: 1.2; letter-spacing: -.035em; }
+    h3 { margin-top: .9rem; font-size: 1.07rem; }
+    p { margin-block: .5rem; color: var(--muted); }
+    .page-intro p { margin-top: .65rem; font-size: 1.1rem; }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(15.5rem, .67fr) minmax(0, 1.33fr);
+      grid-template-areas:
+        "import results"
+        "tools results";
+      align-items: start;
+      gap: clamp(1rem, 2.7vw, 2rem);
+    }
+
+    .results { grid-area: results; display: grid; min-width: 0; gap: 1rem; }
+    .import { grid-area: import; }
+
+    section {
+      min-width: 0;
+      padding: clamp(1rem, 2.5vw, 1.55rem);
+      border: 1px solid var(--line);
+      border-radius: .9rem;
+      background: #fff;
+      box-shadow: 0 .55rem 1.6rem #233b7510;
+    }
+
+    #tools { grid-area: tools; display: grid; gap: 1rem; }
+    form { display: grid; gap: .65rem; }
+    form > button { justify-self: start; }
+    label { display: block; font-size: .92rem; font-weight: 650; }
+
+    input, select, textarea, button { font: inherit; }
+
+    input:not([type="checkbox"], [type="range"]), select, textarea {
+      width: 100%;
+      min-width: 0;
+      margin-top: .2rem;
+      padding: .48rem .6rem;
+      border: 1px solid #a4b3d2;
+      border-radius: .4rem;
+      background: #f8faff;
+      color: var(--ink);
+      font-size: .92rem;
+    }
+
+    input[type="checkbox"], input[type="range"] { accent-color: var(--blue); }
+    input[type="range"] { width: 100%; }
+    input[type="file"]::file-selector-button { margin-right: .4rem; }
+    textarea { min-height: 4.2rem; resize: vertical; }
+
+    button {
+      padding: .5rem .8rem;
+      border: 1px solid var(--line);
+      border-radius: .45rem;
+      background: #eef3ff;
+      color: var(--blue-dark);
+      font-size: .9rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:enabled:hover { border-color: #9aafe4; background: #e2ebff; }
+    button:disabled { cursor: default; opacity: .55; }
+    #upload > button { margin-top: .25rem; border-color: transparent; background: var(--action-gradient); color: #fff; }
+    #upload > button:enabled:hover { background: linear-gradient(115deg, #12399f, #074d55); }
+    #status:empty { display: none; }
+    #tools section > button { margin: .25rem .35rem .45rem 0; }
+    #tools form { margin-top: .75rem; padding-top: .75rem; border-top: 1px solid var(--line); }
+
+    #filters { max-width: 16rem; margin-bottom: .9rem; }
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; min-width: 33rem; border-collapse: collapse; text-align: left; }
+    th, td { padding: .65rem .55rem; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+    th { background: #eef2ff; color: #27205e; font-size: .88rem; }
+    td { font-size: .9rem; }
+    td:first-child { min-width: 9rem; }
+
+    #review > p:first-child:last-child { margin: 0; }
+    #review form { margin-block: .8rem; padding-top: .8rem; border-top: 1px solid var(--line); }
+    #review details { margin-block: .65rem; padding: .65rem .85rem; border: 1px solid var(--line); border-radius: .5rem; }
+    summary { font-weight: 650; cursor: pointer; }
+    li { margin-block: .45rem; overflow-wrap: anywhere; }
+    li button { margin-inline: .25rem; }
+    video, img { display: block; max-width: 100%; max-height: 25rem; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+    @media (max-width: 46rem) {
+      .workspace {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "results" "import" "tools";
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="wordmark" href="/" aria-label="SWRI, strona główna">
+        <span class="brand-mark" aria-hidden="true"></span>SWRI
+      </a>
+      <a class="home-link" href="/">Strona główna</a>
+    </div>
+  </header>
+
+  <main class="shell">
+    <div class="page-intro">
+      <h1>Panel analityczny</h1>
+      <p>Import materiałów, przegląd dowodów i obsługa alertów.</p>
+    </div>
+
+    <div class="workspace">
+      <div class="results">
+        <section aria-labelledby="materials-title">
+          <h2 id="materials-title">Materiały</h2>
+          <div id="filters"></div>
+          <div class="table-scroll" role="region" aria-label="Tabela materiałów" tabindex="0">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Materiał</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Moduły</th>
+                  <th scope="col">Zakres danych</th>
+                  <th scope="col">Priorytet</th>
+                </tr>
+              </thead>
+              <tbody id="items"></tbody>
+            </table>
+          </div>
+        </section>
+        <section id="review" aria-label="Szczegóły materiału">
+          <p>Wybierz materiał, aby przejrzeć dowody.</p>
+        </section>
+      </div>
+
+      <section class="import" aria-labelledby="import-title">
+        <h2 id="import-title">Import materiału</h2>
+        <form id="upload">
+          <label>Tytuł <input name="title"></label>
+          <label>Twórca <input name="creator"></label>
+          <label>URL źródła <input type="url" name="url"></label>
+          <label>Opis <textarea name="description"></textarea></label>
+          <label>Relacja wydawcy
+            <select name="relation">
+              <option value="UNKNOWN">Nieustalona</option>
+              <option value="THIRD_PARTY">Podmiot trzeci</option>
+              <option value="FIRST_PARTY">Pierwsza strona</option>
+            </select>
+          </label>
+          <label>URL profilu wydawcy <input type="url" name="publisher_url"></label>
+          <label>Film lub audio <input type="file" name="video" accept=".mp4,.mp3,.wav,.mov,.webm,.m4a"></label>
+          <label>Napisy <input type="file" name="subtitle" accept=".srt,.vtt,.txt"></label>
+          <label><input type="checkbox" name="captions_complete" value="true"> Napisy są kompletne</label>
+          <label><input type="checkbox" name="rights_confirmed" value="true" required> Mam prawo analizować materiał</label>
+          <button type="submit">Dodaj do kolejki</button>
+        </form>
+        <p id="status" role="status"></p>
+      </section>
+      <div id="tools"></div>
+    </div>
+  </main>
+
+  <script src="/dashboard/app.js" defer></script>
+</body>
 </html>

@@ -1,15 +1,19 @@
 <div class="reel-page">
-  <header class="feed-header">
-    <a class="feed-brand" href="/" aria-label="SWRI, strona główna"><span></span>SWRI<span class="brand-slash">/</span> Rolki</a>
-    <nav aria-label="Nawigacja rolek">
-      <a href="/skanowanie">Skaner</a>
-      <button class="publish" type="button" (click)="openPublisher()">Dodaj rolkę</button>
-    </nav>
+  <header class="swri-header">
+    <div class="feed-header">
+      <a class="feed-brand" href="/" aria-label="SWRI, strona główna">
+        <span class="brand-mark" aria-hidden="true"></span>SWRI
+      </a>
+      <nav aria-label="Nawigacja rolek">
+        <a href="/skanowanie">Skaner</a>
+        <button class="publish header-publish" type="button" (click)="openPublisher()">Dodaj rolkę</button>
+      </nav>
+    </div>
   </header>
 
   <main class="feed-layout">
     <aside class="feed-intro">
-      <a class="back" href="/">InvestWatch</a>
+      <a class="back" href="/">Strona główna</a>
       <h1>{{ profile ? '@' + profile : 'Rolki' }}</h1>
       <p>Oglądaj i publikuj krótkie filmy oraz zdjęcia w lokalnym feedzie.</p>
       @if (profile) { <a class="back profile-back" href="/rolki">Wszystkie rolki</a> }
