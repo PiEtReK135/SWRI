@@ -35,15 +35,16 @@ def prepare_ocr(directory):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data", type=Path, default=Path(os.environ.get("IW_DATA", "data")))
-    parser.add_argument("--models", action="store_true", help="Prepare faster-whisper base")
+    parser.add_argument("--models", action="store_true", help="Prepare the local faster-whisper model")
+    parser.add_argument("--whisper", choices=("base", "small", "medium"), default="medium")
     args = parser.parse_args()
     prepare_ocr(args.data / "tessdata")
     if args.models:
         os.environ.setdefault("HF_HOME", str((args.data / "hf").resolve()))
         from faster_whisper.utils import download_model
 
-        target = args.data / "models" / "whisper-base"
-        download_model("base", output_dir=str(target))
+        target = args.data / "models" / f"whisper-{args.whisper}"
+        download_model(args.whisper, output_dir=str(target))
         print(f"Model ASR: {target.resolve()}")
 
 

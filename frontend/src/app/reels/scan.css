@@ -22,6 +22,17 @@ button { background: var(--action-gradient); color: white; border: 0; border-rad
 button:hover { background: var(--action-gradient-hover); }
 button:disabled { opacity: .65; cursor: default; }
 .scan-current, .scan-error { margin-bottom: .55rem; }
+.scan-actions, .session-row, .session-row > div:last-child { display: flex; gap: .7rem; flex-wrap: wrap; }
+.secondary-scan { background: white; color: var(--blue-dark); box-shadow: inset 0 0 0 1px #a9bff0; }
+.secondary-scan:hover { background: #e9f0ff; }
+.reset-confirm, .session-history { border: 1px solid var(--line); background: white; border-radius: .6rem; padding: 1rem; }
+.reset-confirm { margin-top: .8rem; }
+.reset-confirm p { margin-bottom: .5rem; }
+.reset-confirm button + button { margin-left: .55rem; }
+.session-history { margin-bottom: 1.5rem; }
+.session-row { justify-content: space-between; padding: .6rem 0; border-bottom: 1px solid var(--line); }
+.session-row a { color: var(--blue-dark); text-underline-offset: .2em; }
+.session-row p { color: var(--muted); }
 .scan-error { color: #902d20; }
 .strategy { margin-top: .9rem; }
 .strategy summary { font-weight: 690; cursor: pointer; }

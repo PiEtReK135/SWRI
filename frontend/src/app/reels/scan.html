@@ -27,8 +27,18 @@
         <button type="button" (click)="action('stop')" [disabled]="waiting() || state()?.status === 'STOPPING'">Zatrzymaj</button>
       } @else {
         <button type="button" (click)="action('start')" [disabled]="waiting()">Uruchom skan</button>
+        @if (state()?.id) {
+          <button type="button" class="secondary-scan" (click)="confirming.set(!confirming())">Resetuj skaner</button>
+        }
       }
     </div>
+    @if (confirming()) {
+      <div class="reset-confirm">
+        <p>Reset wyzeruje strategię i otworzy nowy profil skanera. Dotychczasowe wyniki znikną z aktywnych raportów i historii.</p>
+        <button type="button" [disabled]="waiting()" (click)="action('reset')">Potwierdź reset</button>
+        <button type="button" class="secondary-scan" (click)="confirming.set(false)">Anuluj</button>
+      </div>
+    }
     @if (state()?.strategies?.length) {
       <details class="strategy">
         <summary>Skuteczność strategii reakcji w tej sesji</summary>
@@ -37,5 +47,19 @@
       </details>
     }
   </section>
+  @if (sessions().length) {
+    <section class="session-history" aria-labelledby="history-title">
+      <h2 id="history-title">Historia analiz lokalnych</h2>
+      @for (session of sessions(); track session.id) {
+        <div class="session-row">
+          <div><strong>{{ date(session.started) }}</strong><p>{{ labels[session.status] }} · {{ session.scanned }} materiałów</p></div>
+          @if (session.ended) {
+            <div><a [href]="'/api/scan/sessions/' + session.id + '/preview'" target="_blank" rel="noopener">Otwórz podgląd</a>
+              <a [href]="'/api/scan/sessions/' + session.id + '/preview?download=true'">Pobierz HTML</a></div>
+          }
+        </div>
+      }
+    </section>
+  }
   <reel-reports />
 </main>

@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
+from statistics import median
 
 MAX_SECONDS = 300
 STAMP = r"(?:\d{2}:)?\d{2}:\d{2}[,.]\d{3}"
@@ -76,7 +77,7 @@ def drawtext_font():
     return ""
 
 
-def asr(path):
+def asr(path, *, model_path=None, beam_size=5):
     from faster_whisper import WhisperModel
     import numpy as np
 
@@ -84,14 +85,18 @@ def asr(path):
                    *local_format(path), "-i", str(path), "-vn", "-ac", "1",
                    "-ar", "16000", "-f", "f32le", "pipe:1"])
     audio = np.frombuffer(pcm, dtype="<f4")
-    model_path = os.environ.get("IW_WHISPER_MODEL", "base")
+    model_path = model_path or os.environ.get("IW_WHISPER_MODEL", "base")
     model = WhisperModel(model_path, device="cpu", compute_type="int8", cpu_threads=4,
                          num_workers=1, local_files_only=True)
-    chunks, info = model.transcribe(audio, beam_size=1, vad_filter=True)
+    chunks, info = model.transcribe(
+        audio, beam_size=beam_size, vad_filter=True, condition_on_previous_text=False,
+        language_detection_segments=3, vad_parameters={"min_silence_duration_ms": 450},
+    )
     return [segment("ASR", chunk.text.strip(), round(chunk.start * 1000),
                     round(chunk.end * 1000), language=info.language,
-                    avg_logprob=chunk.avg_logprob, model="faster-whisper/" + model_path)
-            for chunk in chunks]
+                    avg_logprob=chunk.avg_logprob, language_probability=info.language_probability,
+                    model="faster-whisper/" + Path(model_path).name)
+            for chunk in chunks if chunk.text.strip()]
 
 
 def ocr_languages():
@@ -108,7 +113,7 @@ def read_ocr(source, languages):
     pages = {}
     lines = {}
     for word in csv.DictReader(io.StringIO(output.decode()), delimiter="\t", quoting=csv.QUOTE_NONE):
-        if word["text"] and float(word["conf"]) >= 35:
+        if word["text"] and float(word["conf"]) >= 55:
             key = (word["page_num"], word["block_num"], word["par_num"], word["line_num"])
             if key not in lines:
                 lines[key] = []
@@ -118,6 +123,7 @@ def read_ocr(source, languages):
 
 
 def ocr_segments(frame, languages, lines, start):
+    lines = [words for words in lines if credible_ocr_line(words)]
     if not lines:
         return
     digest = hashlib.sha256(frame.read_bytes()).hexdigest()
@@ -126,7 +132,19 @@ def ocr_segments(frame, languages, lines, start):
         yield segment("OCR", " ".join(w["text"] for w in words), start,
                       bbox=[x, y, max(int(w["left"]) + int(w["width"]) for w in words) - x,
                             max(int(w["top"]) + int(w["height"]) for w in words) - y],
-                      frame_sha256=digest, artifact=frame.name, language=languages)
+                      frame_sha256=digest, artifact=frame.name, language=languages,
+                      confidence=round(median(float(w["conf"]) for w in words), 1))
+
+
+def credible_ocr_line(words):
+    tokens = [re.sub(r"[^\w%]", "", word["text"], flags=re.UNICODE).strip("_") for word in words]
+    confidence = median(float(word["conf"]) for word in words)
+    useful = [token for token in tokens if len(token) >= 3 and any(char.isalpha() for char in token)]
+    if len(useful) >= 2:
+        return confidence >= 79 and sum(map(len, useful)) >= 7 and len(useful) * 2 >= len(tokens)
+    text = " ".join(tokens).strip().casefold()
+    # Keep explicit short financial labels and disclosure marks at high confidence.
+    return confidence >= 90 and bool(re.fullmatch(r"reklama|cfd|etf(?:y)?|knf|bitcoin|[0-9]{1,3}%", text))
 
 
 def ocr_frame(frame, languages, start=None):
@@ -155,9 +173,12 @@ def ocr_batch(path, duration, clips, work, interval):
         for page, (second, frame) in enumerate(zip(times, frames), 1):
             if page not in pages:
                 continue
+            accepted = list(ocr_segments(frame, languages, pages[page], second * 1000))
+            if not accepted:
+                continue
             published = work / f"frame-{second}.png"
             frame.replace(published)
-            yield from ocr_segments(published, languages, pages[page], second * 1000)
+            yield from ({**row, "artifact": published.name} for row in accepted)
 
 
 def ocr(path, duration, clips, work, interval=3):

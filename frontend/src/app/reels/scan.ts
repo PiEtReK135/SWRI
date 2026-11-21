@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
-import { ScanStatus, request } from './reel-api';
+import { ScanSession, ScanStatus, dateLabel, request } from './reel-api';
 import { ReelReports } from './reports';
 
 @Component({
@@ -13,6 +13,9 @@ export class ScanPage {
   protected readonly state = signal<ScanStatus | null>(null);
   protected readonly waiting = signal(false);
   protected readonly error = signal('');
+  protected readonly sessions = signal<ScanSession[]>([]);
+  protected readonly confirming = signal(false);
+  protected readonly date = dateLabel;
   protected readonly active = new Set(['STARTING', 'SCANNING', 'WAITING', 'STOPPING']);
   protected readonly labels: Record<string, string> = {
     IDLE: 'Gotowy', STARTING: 'Uruchamianie', SCANNING: 'Analizuje rolkę',
@@ -23,10 +26,12 @@ export class ScanPage {
   constructor() {
     document.title = 'Skaner rolek | SWRI';
     const url = new URL(location.href);
-    if (url.searchParams.get('start') === '1') {
-      void this.action('start').then(ok => {
+    const reel = url.searchParams.get('rolka');
+    if (url.searchParams.get('start') === '1' || reel) {
+      void this.action('start', reel).then(ok => {
         if (ok) {
           url.searchParams.delete('start');
+          url.searchParams.delete('rolka');
           history.replaceState(null, '', url);
         }
       });
@@ -41,16 +46,20 @@ export class ScanPage {
     if (this.waiting()) return;
     try {
       this.state.set(await request<ScanStatus>('/api/scan/status'));
+      this.sessions.set(await request<ScanSession[]>('/api/scan/sessions'));
     } catch (error) {
       this.report(error);
     }
   }
 
-  protected async action(action: 'start' | 'stop'): Promise<boolean> {
+  protected async action(action: 'start' | 'stop' | 'reset', reel: string | null = null): Promise<boolean> {
     this.waiting.set(true);
     this.error.set('');
     try {
-      this.state.set(await request<ScanStatus>('/api/scan/' + action, { method: 'POST' }));
+      const query = reel ? '?reel=' + encodeURIComponent(reel) : '';
+      this.state.set(await request<ScanStatus>('/api/scan/' + action + query, { method: 'POST' }));
+      this.sessions.set(await request<ScanSession[]>('/api/scan/sessions'));
+      this.confirming.set(false);
       return true;
     } catch (error) {
       this.report(error);

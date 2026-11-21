@@ -39,16 +39,18 @@ Opcjonalnie zaimportuj publicznie dostępne materiały startowe, gdy aplikacja j
 node.exe scripts/import_reel_samples.mjs
 ```
 
-Import pobiera wskazane materiały ze źródeł wydawców i zapisuje je lokalnie. Sam skaner korzysta z lokalnego API feedu. [Architektura, algorytmy, źródła i wariant hostingu](docs/reels.md).
+Import pobiera polskie nagrania lektorskie ze źródła wydawcy i przygotowuje z nich krótkie filmy z wizualizacją dźwięku. Temat feedu jest przypisywany automatycznie. Skaner wyznacza własną kategorię na podstawie mowy, obrazu i opisu.
+
+Na ekranie skanera **Historia analiz lokalnych** pozwala wyświetlić sesję po dacie i pobrać samodzielny HTML. **Resetuj skaner** otwiera nowy profil i zeruje aktywną historię i strategię. [Architektura, algorytmy, źródła i publikacja podglądu](docs/reels.md).
 
 ### Opcjonalne lokalne modele
 
 ```powershell
-$env:IW_WHISPER_MODEL = "C:\models\faster-whisper-base"
+.\.venv\Scripts\python.exe scripts/prepare_assets.py --models --whisper medium
 .\start.ps1 -WithASR -SiteDir .\frontend\dist
 ```
 
-Ścieżka musi zawierać wcześniej pozyskany model CTranslate2 faster-whisper. Analiza używa CPU INT8, czterech wątków i trybu offline. Jeżeli uruchomiono Ollama na porcie 11434 i model jest dostępny lokalnie, ustaw `$env:IW_OLLAMA_MODEL = "qwen3:1.7b"` przed uruchomieniem aplikacji. Model może wskazać istniejące cytaty do ponownego sprawdzenia. Klasyfikacja i ostateczna ocena pozostają niezależne od jego wyboru.
+Domyślnie start używa dostępnego modelu w kolejności medium, small, base. Model medium zajmuje ok. 1,53 GB na dysku. Ścieżkę do pobranego modelu CTranslate2 można też ustawić w `IW_WHISPER_MODEL`. Inferencja używa CPU INT8, czterech wątków i trybu offline. Jeżeli uruchomiono Ollama na porcie 11434 i model jest dostępny lokalnie, ustaw `$env:IW_OLLAMA_MODEL = "qwen3:1.7b"` przed startem. Model może wskazać cytaty do ponownej weryfikacji.
 
 ### Compose
 

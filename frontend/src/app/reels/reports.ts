@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
-import { Rating, Review, ReviewDetail, ScanStatus, decisions, request, risks, secondsLabel } from './reel-api';
+import { Rating, Review, ReviewDetail, ScanStatus, dateLabel, decisions, request, risks, secondsLabel } from './reel-api';
 
 interface ReportPage { total: number; items: Review[] }
 type Tab = 'summary' | 'details' | 'ratings';
@@ -25,6 +25,7 @@ export class ReelReports {
   protected readonly decisions = decisions;
   protected readonly risks = risks;
   protected readonly label = secondsLabel;
+  protected readonly date = dateLabel;
   protected readonly channel: Record<string, string> = {
     ASR: 'Mowa', OCR: 'Tekst na ekranie', DESCRIPTION: 'Opis',
   };
@@ -32,6 +33,7 @@ export class ReelReports {
     CHECKED: 'Sprawdzono', ERROR: 'Błąd analizy', NOT_APPLICABLE: 'Brak ścieżki',
   };
   protected readonly keys = Object.keys;
+  protected readonly channels = ['ASR', 'OCR', 'DESCRIPTION'];
 
   constructor() {
     void this.refresh();
@@ -106,5 +108,9 @@ export class ReelReports {
 
   protected evidence(item: Review, artifact: string): string {
     return `/api/scan/evidence/${item.run}/${item.reel}/${encodeURIComponent(artifact)}`;
+  }
+
+  protected lines(report: ReviewDetail, channel: string) {
+    return report.timeline.filter(line => line.kind === channel);
   }
 }

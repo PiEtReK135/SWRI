@@ -21,6 +21,7 @@
         <button type="button" (click)="previous()" [disabled]="index() <= 0 || waiting()">Poprzednia</button>
         <button type="button" (click)="next()" [disabled]="waiting()">Następna</button>
       </div>
+      <p class="feedback"><button type="button" (click)="resetPreferences()">Resetuj moje preferencje</button></p>
       @if (exhausted() && current()) { <p class="feedback" role="status">Nie ma kolejnych rolek.</p> }
       @if (notice()) { <p class="feedback" role="status">{{ notice() }}</p> }
       @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
@@ -48,6 +49,7 @@
           <a [href]="'/rolki?autor=' + encodeCreator(item.creator)">&#64;{{ item.creator }}</a>
           <h2>{{ item.title }}</h2>
           @if (item.description) { <p>{{ item.description }}</p> }
+          <small><a [href]="'/skanowanie?rolka=' + item.id" target="_blank" rel="noopener">Przeanalizuj tę rolkę</a></small>
           @if (item.credit) { <small>{{ item.credit }} @if (item.source) { · <a [href]="item.source" target="_blank" rel="noopener noreferrer">Źródło i licencja</a> }</small> }
         </div>
       </div>
@@ -93,7 +95,6 @@
       <label>Tytuł <input name="title" required maxlength="120"></label>
       <label>Profil autora <input name="creator" required maxlength="64" placeholder="np. twoj_profil"></label>
       <label>Opis <textarea name="description" rows="3" maxlength="4000"></textarea></label>
-      <label>Temat <select name="topic">@for (topic of topics; track topic) { <option>{{ topic }}</option> }</select></label>
       <label>Autor i licencja <input name="credit" maxlength="280"></label>
       <label class="confirm"><input type="checkbox" name="rights_confirmed" required value="true"> Mam prawo do publikacji tego materiału.</label>
       <p>Film do 5 minut i 150 MB, obraz do 20 MB.</p>

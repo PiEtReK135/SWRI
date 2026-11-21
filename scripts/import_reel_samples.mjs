@@ -1,34 +1,30 @@
 import { mkdir, rename, stat } from 'node:fs/promises';
 import { createWriteStream, openAsBlob } from 'node:fs';
+import { execFile } from 'node:child_process';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
+import { promisify } from 'node:util';
 
-// Independently published material. The scanner receives the same post as any viewer.
+const run = promisify(execFile);
+
+// Authentic Polish audio. The local waveform is added to make each sample playable as a reel.
 const samples = [
   {
-    file: 'Apollo11.jpg',
-    asset: 'https://images-assets.nasa.gov/image/as11-40-5903/as11-40-5903~orig.jpg',
-    source: 'https://images.nasa.gov/details/as11-40-5903',
-    title: 'Apollo 11 na Księżycu', creator: 'nasa', topic: 'Technologia',
-    description: 'Zdjęcie z archiwum fotograficznego misji Apollo 11.',
-    credit: 'NASA · materiał archiwalny · przetworzenie formatu',
+    file: 'Stepy-akermanskie.mp3',
+    asset: 'https://wolnelektury.pl/media/book/mp3/adam-mickiewicz-sonety-krymskie-stepy-akermanskie.mp3',
+    source: 'https://wolnelektury.pl/katalog/lektura/sonety-krymskie-stepy-akermanskie/',
+    title: 'Stepy akermańskie', creator: 'wolne_lektury',
+    description: 'Fragment literatury polskiej z audiobiblioteki Wolne Lektury. Obraz przedstawia przebieg dźwięku.',
+    credit: 'Adam Mickiewicz · czyta Jan Dravnel · reż. Sebastian Buttny · Wolne Lektury · fragment z wizualizacją',
   },
   {
-    file: 'ETF.mp4',
-    asset: 'https://download.media.tagesschau.de/video/2020/0930/TV-20200930-1644-3300.webxxl.h264.mp4',
-    source: 'https://commons.wikimedia.org/wiki/File:Gut_zu_wissen,_Wie_funktionieren_ETFs%3F_-_Tagesschau.webm',
-    title: 'Jak działają ETF-y?', creator: 'tagesschau_ard', topic: 'Rynek i inwestycje',
-    description: 'Materiał Tagesschau z serii „Gut zu wissen” wyjaśnia, jak działają fundusze ETF. Język niemiecki.',
-    credit: 'Tagesschau (ARD) · CC BY-SA 4.0 · przetworzenie formatu',
-  },
-  {
-    file: 'BigBuckBunny.mp4',
-    asset: 'https://media.w3.org/2010/05/bunny/trailer.mp4',
-    source: 'https://peach.blender.org/about/',
-    title: 'Big Buck Bunny', creator: 'blender_foundation', topic: 'Kultura',
-    description: 'Zwiastun animacji projektu Peach z 2008 roku.',
-    credit: 'Blender Foundation · CC BY 3.0 · przetworzenie formatu',
+    file: 'Ptasie-radio.mp3',
+    asset: 'https://wolnelektury.pl/media/book/mp3/tuwim-ptasie-radio.mp3',
+    source: 'https://wolnelektury.pl/katalog/lektura/tuwim-ptasie-radio/',
+    title: 'Ptasie radio', creator: 'wolne_lektury',
+    description: 'Fragment literatury polskiej z audiobiblioteki Wolne Lektury. Obraz przedstawia przebieg dźwięku.',
+    credit: 'Julian Tuwim · czyta Diana Giurow · reż. Studio Postęp · Wolne Lektury · fragment z wizualizacją',
   },
 ];
 
@@ -51,8 +47,17 @@ for (const { file, asset, ...metadata } of samples) {
       await pipeline(Readable.fromWeb(response.body), createWriteStream(temporary));
       await rename(temporary, saved);
     }
+    const reelName = file.replace(/\.mp3$/, '.mp4');
+    const upload = join(cache, reelName);
+    if (!(await stat(upload).catch(() => null))?.size) {
+      await run('ffmpeg', ['-nostdin', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=0x111727:s=360x640:r=24',
+        '-i', saved, '-filter_complex',
+        '[1:a]showwaves=s=300x112:mode=cline:colors=0x71d3c3:r=24[wave];[0:v][wave]overlay=(W-w)/2:(H-h)/2[out]',
+        '-map', '[out]', '-map', '1:a', '-t', '35', '-shortest', '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
+        '-c:a', 'aac', '-threads', '2', upload]);
+    }
     const form = new FormData();
-    form.set('file', await openAsBlob(saved), file);
+    form.set('file', await openAsBlob(upload), reelName);
     form.set('rights_confirmed', 'true');
     for (const [key, value] of Object.entries(metadata)) form.set(key, value);
     const published = await fetch(base + '/posts', { method: 'POST', body: form });

@@ -40,6 +40,9 @@ export interface Review {
   companies: string[];
   reasons: Reason[];
   seconds: number;
+  saved: string;
+  category: string;
+  market_language?: string;
   url: string;
 }
 
@@ -63,6 +66,8 @@ export interface Rating {
 export interface ScanStatus {
   id?: string;
   status: string;
+  started?: string;
+  ended?: string | null;
   scanned: number;
   decisions?: Record<string, number>;
   average_seconds?: number;
@@ -71,13 +76,18 @@ export interface ScanStatus {
   strategies: { name: string; trials: number; hits: number }[];
 }
 
-export const topics = [
-  'Rynek i inwestycje', 'Technologia', 'Kultura', 'Podróże i natura', 'Sport', 'Kuchnia', 'Inne',
-];
+export interface ScanSession {
+  id: string;
+  started: string;
+  ended: string | null;
+  status: string;
+  scanned: number;
+}
 
 export const decisions: Record<string, string> = {
   REVIEW: 'Do sprawdzenia', FINANCE_NEUTRAL: 'Finanse bez promocji',
   OUT_OF_SCOPE: 'Odrzucona', UNRESOLVED: 'Do ponownej analizy',
+  OUT_OF_MARKET: 'Poza polskim rynkiem',
 };
 
 export const risks: Record<string, string> = { HIGH: 'Wysoki', MEDIUM: 'Średni', LOW: 'Niski' };
@@ -99,4 +109,8 @@ export const mediaUrl = (id: string) => '/api/reels/posts/' + encodeURIComponent
 
 export function secondsLabel(ms: number): string {
   return new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 1 }).format(ms / 1000) + ' s';
+}
+
+export function dateLabel(value: string): string {
+  return new Intl.DateTimeFormat('pl-PL', { dateStyle: 'medium', timeStyle: 'medium' }).format(new Date(value));
 }

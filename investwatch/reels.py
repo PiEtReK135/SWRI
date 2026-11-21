@@ -3,6 +3,7 @@
 from contextlib import closing, contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+import re
 import sqlite3
 from tempfile import TemporaryDirectory
 from uuid import uuid4
@@ -15,6 +16,19 @@ from .media import command
 
 TOPICS = ("Rynek i inwestycje", "Technologia", "Kultura", "Podróże i natura",
           "Sport", "Kuchnia", "Inne")
+TOPIC_PATTERNS = (
+    r"\b(?:inwest\w*|makler\w*|finans\w*|giełd\w*|bitcoin\w*|etf\w*)\b",
+    r"\b(?:technolog\w*|komputer\w*|telefon\w*|oprogramowan\w*|internet\w*)\b",
+    r"\b(?:kultur\w*|sztuk\w*|muzyk\w*|kolekcj\w*|wikipedi\w*|muze\w*|bibliotek\w*)\b",
+    r"\b(?:podróż\w*|tatr\w*|jezior\w*|przyrod\w*|szlak\w*)\b",
+    r"\b(?:sport\w*|mecz\w*|trening\w*|rower\w*|biegan\w*)\b",
+    r"\b(?:kuchni\w*|gotow\w*|przepis\w*|deser\w*)\b",
+)
+RETIRED_SAMPLES = (
+    "https://images.nasa.gov/details/as11-40-5903",
+    "https://peach.blender.org/about/",
+    "https://commons.wikimedia.org/wiki/File:Gut_zu_wissen,_Wie_funktionieren_ETFs%3F_-_Tagesschau.webm",
+)
 VIDEO = {".mp4", ".mov", ".webm"}
 IMAGE = {".jpg", ".jpeg", ".png", ".webp"}
 MAX_BYTES = 150 * 1024 * 1024
@@ -41,6 +55,12 @@ def public_post(row):
         "id", "title", "creator", "description", "topic", "kind", "duration",
         "source", "credit", "created"
     )}
+
+
+def platform_topic(title, description):
+    scores = [len(re.findall(pattern, title.casefold())) + 2 * len(re.findall(pattern, description.casefold()))
+              for pattern in TOPIC_PATTERNS]
+    return TOPICS[scores.index(max(scores))] if any(scores) else "Inne"
 
 
 class Signal(BaseModel):
@@ -72,7 +92,14 @@ def create_platform(root):
             id INTEGER PRIMARY KEY, reel TEXT NOT NULL REFERENCES reels(id),
             text TEXT NOT NULL, viewer TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS platform_settings (key TEXT PRIMARY KEY);
     """)
+    with database(path) as db:
+        db.execute("BEGIN IMMEDIATE")
+        if db.execute("INSERT OR IGNORE INTO platform_settings VALUES ('auto-topic-v1')").rowcount:
+            posts = db.execute("SELECT id,title,description FROM reels").fetchall()
+            db.executemany("UPDATE reels SET topic=? WHERE id=?",
+                           ((platform_topic(row["title"], row["description"]), row["id"]) for row in posts))
     router = APIRouter(prefix="/api/reels")
 
     def existing(db, reel):
@@ -87,8 +114,9 @@ def create_platform(root):
              creator: str | None = Query(None, max_length=64),
              seen: list[str] = Query(default=[], max_length=200)):
         with database(path) as db:
-            posts = db.execute("SELECT * FROM reels WHERE ? IS NULL OR creator=? ORDER BY created DESC, id",
-                               (creator, creator)).fetchall()
+            posts = db.execute("""SELECT * FROM reels
+                WHERE (? IS NULL OR creator=?) AND source NOT IN (?,?,?)
+                ORDER BY created DESC,id""", (creator, creator, *RETIRED_SAMPLES)).fetchall()
             activities = db.execute("""
                 SELECT reel, action, value, topic FROM signals JOIN reels ON signals.reel=reels.id
                 WHERE viewer=?
@@ -141,11 +169,11 @@ def create_platform(root):
     @router.post("/posts", status_code=201)
     def publish(file: UploadFile = File(...), title: str = Form(min_length=1, max_length=120),
                 creator: str = Form(min_length=1, max_length=64),
-                description: str = Form("", max_length=4000), topic: str = Form("Inne"),
+                description: str = Form("", max_length=4000),
                 credit: str = Form("", max_length=280), source: str = Form("", max_length=300),
                 rights_confirmed: bool = Form(False)):
-        if not rights_confirmed or topic not in TOPICS or not title.strip() or not creator.strip(" @"):
-            raise HTTPException(400, "Podaj tytuł, autora, temat i potwierdź prawo do publikacji")
+        if not rights_confirmed or not title.strip() or not creator.strip(" @"):
+            raise HTTPException(400, "Podaj tytuł, autora i potwierdź prawo do publikacji")
         suffix = Path(file.filename or "").suffix.lower()
         if suffix not in VIDEO | IMAGE:
             raise HTTPException(415, "Wybierz MP4, MOV, WebM, JPG, PNG lub WebP")
@@ -171,7 +199,8 @@ def create_platform(root):
                 output.replace(destination)
                 try:
                     db.execute("""INSERT INTO reels VALUES (?,?,?,?,?,?,?,?,?,?)""",
-                               (reel, title.strip(), creator.strip(" @"), description.strip(), topic,
+                               (reel, title.strip(), creator.strip(" @"), description.strip(),
+                                platform_topic(title, description),
                                 "video" if video else "image", duration, source.strip(), credit.strip(),
                                 datetime.now(timezone.utc).isoformat()))
                     db.commit()
