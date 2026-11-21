@@ -1,0 +1,25 @@
+<main class="login-page">
+  <div class="login-panel" aria-labelledby="login-title">
+    <a class="back-link" href="/">Wróć na stronę SWRI</a>
+    <p class="login-context">Dashboard administratora</p>
+    <h1 id="login-title">Zaloguj się</h1>
+    <p class="login-note">Ekran demonstracyjny. Panel lokalny jest dostępny bez logowania.</p>
+
+    <form (submit)="submit($event)">
+      <label for="admin-email">Adres e-mail</label>
+      <input id="admin-email" type="email" autocomplete="username" required>
+
+      <label for="admin-password">Hasło</label>
+      <input id="admin-password" type="password" autocomplete="current-password" required>
+
+      <button type="submit">Zaloguj się</button>
+    </form>
+
+    <p class="login-status" role="status">
+      @if (submitted()) {
+        Formularz demonstracyjny nie sprawdza danych.
+      }
+    </p>
+    <a class="back-link dashboard-link" href="/dashboard">Otwórz panel InvestWatch</a>
+  </div>
+</main>

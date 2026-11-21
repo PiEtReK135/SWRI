@@ -1,6 +1,8 @@
 param([switch]$WithASR, [switch]$Install, [string]$SiteDir, [switch]$WithOllama)
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
+$env:Path = @($env:Path, [Environment]::GetEnvironmentVariable("Path", "Machine"),
+              [Environment]::GetEnvironmentVariable("Path", "User")) -join ";"
 if (-not (Test-Path ".venv\Scripts\python.exe")) {
     py -3.12 -m venv .venv
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

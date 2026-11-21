@@ -4,28 +4,36 @@ Lokalny prototyp do przeglądu organicznych filmów i identyfikacji potencjalnej
 
 ## Szybki start na Windows 11
 
-W PowerShell uruchom z katalogu repozytorium. Instalator używa WinGet do przygotowania Python 3.12, FFmpeg i Tesseract oraz zapisuje pakiety OCR pol/eng i model ASR w `data`.
+Wymagany jest Node.js 24 LTS z npm. Z katalogu repozytorium wykonaj w PowerShell poniższe polecenia. Instalator używa WinGet do przygotowania Python 3.12, FFmpeg i Tesseract oraz zapisuje pakiety OCR pol/eng i model ASR w `data`.
 
 ```powershell
 .\setup.ps1
-.\start.ps1
+npm.cmd --prefix frontend ci
+npm.cmd --prefix frontend run build
+.\start.ps1 -SiteDir .\frontend\dist
 ```
 
-Otwórz `http://127.0.0.1:8000`. W sekcji **Discovery** wybierz **Wczytaj filmy demo**. W wierszu **Jesienna wędrówka** wybierz cytat przy 00:18, obejrzyj oś czasu i wyeksportuj raport. Pozostałe przykłady pokazują materiał oficjalny (M2), ofertę doradztwa (M3) i promocję widoczną tylko w OCR.
+Otwórz `http://127.0.0.1:8000` i wybierz **Otwórz panel**. W sekcji **Discovery** wybierz **Wczytaj filmy demo**. W wierszu **Jesienna wędrówka** wybierz cytat przy 00:18, obejrzyj oś czasu i wyeksportuj raport. Pozostałe przykłady pokazują materiał oficjalny (M2), ofertę doradztwa (M3) i promocję widoczną tylko w OCR.
 
 Własny materiał można przesłać jako plik wideo lub audio i opcjonalne napisy SRT/VTT/TXT. Limit klipu to 300 s i 150 MB. Napisy z pozycjami czasowymi są źródłem cytatów. Przy niepełnych napisach i dostępnym audio pracownik próbuje użyć lokalnego ASR.
 
-Jeśli pobieranie modelu jest niedostępne, użyj `setup.ps1 -SkipModels`. Napisy i OCR działają lokalnie po zakończeniu instalacji. Aby przygotować dodatkowo Ollama i Qwen, uruchom `setup.ps1 -WithOllama`, następnie `start.ps1 -WithOllama`.
+Jeśli pobieranie modelu jest niedostępne, użyj `setup.ps1 -SkipModels`. Napisy i OCR działają lokalnie po zakończeniu instalacji. Aby przygotować dodatkowo Ollama i Qwen, uruchom `setup.ps1 -WithOllama`, następnie `.\start.ps1 -WithOllama -SiteDir .\frontend\dist`.
+
+Jeśli npm zgłasza `UNABLE_TO_VERIFY_LEAF_SIGNATURE`, ustaw w tym oknie PowerShell `$env:NODE_OPTIONS = "--use-system-ca"` i ponów `npm.cmd --prefix frontend ci`.
 
 ### Strona projektu pod wspólnym adresem
 
-Uruchom `.\start.ps1 -SiteDir "C:\ścieżka\do\dist"`, podając katalog gotowej statycznej kompilacji zawierający `index.html`. Strona pojawi się pod `/`, panel pod `/dashboard`, a endpointy API nadal są dostępne pod tym samym originem. Strona może kierować do panelu linkiem względnym `/dashboard` oraz odpytywać np. `/health` lub `/content`. Przykładowy test używa minimalnej strony referencyjnej. Środowisko serwuje tylko wskazany katalog, więc podawaj katalog wynikowy przeznaczony do publikacji.
+Po restarcie uruchom z katalogu repozytorium `.\start.ps1 -SiteDir .\frontend\dist`. Po zmianie źródeł Angulara ponownie wykonaj `npm.cmd --prefix frontend run build`.
+
+Pod jednym adresem lokalnym działają strona SWRI pod `/`, panel InvestWatch pod `/dashboard` i API, m.in. `/health`, `/content` i `/reports/{id}`. Trasa `/admin/login` pokazuje demonstracyjny formularz. Panel i API są dostępne bez uwierzytelniania, a serwer nasłuchuje na `127.0.0.1`.
+
+Parametr `-SiteDir` przyjmuje katalog gotowej kompilacji z plikiem `index.html`. Polecenie `.\start.ps1` bez tego parametru otwiera sam panel pod `/`.
 
 ### Opcjonalne lokalne modele
 
 ```powershell
 $env:IW_WHISPER_MODEL = "C:\models\faster-whisper-base"
-.\start.ps1 -WithASR
+.\start.ps1 -WithASR -SiteDir .\frontend\dist
 ```
 
 Ścieżka musi zawierać wcześniej pozyskany model CTranslate2 faster-whisper. Analiza używa CPU INT8, czterech wątków i trybu offline. Jeżeli uruchomiono Ollama na porcie 11434 i model jest dostępny lokalnie, ustaw `$env:IW_OLLAMA_MODEL = "qwen3:1.7b"` przed uruchomieniem aplikacji. Model może wskazać istniejące cytaty do ponownego sprawdzenia. Klasyfikacja i ostateczna ocena pozostają niezależne od jego wyboru.
@@ -44,9 +52,11 @@ Panel jest dostępny pod tym samym adresem. Dane są w wolumenie `investwatch-da
 python -m pip install -r requirements.txt -r requirements-dev.txt
 python -m unittest discover -v
 python -m pip_audit
+npm --prefix frontend ci
+npm --prefix frontend run build
 ```
 
-Testy integracyjne wymagają FFmpeg, Tesseract i czcionki obsługiwanej przez FFmpeg. JavaScript nie ma zależności npm. [Wyniki testów](docs/validation.md) · [Śledzenie wymagań](docs/requirements_traceability.md) · [Prezentacja](docs/InvestWatch-demo.pdf)
+Testy integracyjne wymagają FFmpeg, Tesseract i czcionki obsługiwanej przez FFmpeg. Zależności Angulara są zapisane w `frontend/package-lock.json`. [Wyniki testów](docs/validation.md) · [Śledzenie wymagań](docs/requirements_traceability.md) · [Prezentacja](docs/InvestWatch-demo.pdf)
 
 ## Źródła i interpretacja
 

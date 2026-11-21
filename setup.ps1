@@ -1,4 +1,4 @@
-param([switch]$SkipModels, [switch]$WithOllama)
+﻿param([switch]$SkipModels, [switch]$WithOllama)
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
@@ -24,10 +24,15 @@ function Install-Package($Id) {
     Refresh-Path
 }
 
+function Test-Python312 {
+    if (-not (Get-Command py -ErrorAction SilentlyContinue)) { return $false }
+    $ErrorActionPreference = "Continue"
+    & py -3.12 -c "import sys; print(sys.version)" 2>$null | Out-Host
+    return $LASTEXITCODE -eq 0
+}
+
 Refresh-Path
-if (-not (Get-Command py -ErrorAction SilentlyContinue)) { Install-Package "Python.Python.3.12" }
-& py -3.12 -c "import sys; print(sys.version)" 2>$null
-if ($LASTEXITCODE -ne 0) { Install-Package "Python.Python.3.12" }
+if (-not (Test-Python312)) { Install-Package "Python.Python.3.12" }
 if (-not ((Get-Command ffmpeg -ErrorAction SilentlyContinue) -and
           (Get-Command ffprobe -ErrorAction SilentlyContinue))) { Install-Package "Gyan.FFmpeg" }
 if (-not (Get-Command tesseract -ErrorAction SilentlyContinue)) { Install-Package "UB-Mannheim.TesseractOCR" }

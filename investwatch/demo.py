@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 
-from .media import command
+from .media import command, drawtext_font
 
 
 DEMO = (
@@ -37,7 +37,7 @@ def seed(store, submit):
                        else "INVESTWATCH - DEMO")
             command(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i",
                      "color=c=0x153744:s=640x360:r=12:d=24", "-vf",
-                     "drawtext=text=" + overlay + ":x=22:y=160:fontsize=26:fontcolor=white:"
+                     f"drawtext={drawtext_font()}text={overlay}:x=22:y=160:fontsize=26:fontcolor=white:"
                      "enable='between(t,18,22)'", "-threads", "2", "-c:v", "libx264", str(clip)])
             caption = f"1\n00:00:00,000 --> 00:00:04,000\n{opening}\n"
             if promo:

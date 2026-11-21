@@ -21,6 +21,9 @@ class SiteTest(TestCase):
             with TestClient(app) as client:
                 self.assertIn("SWRI", client.get("/").text)
                 self.assertIn("project-site", client.get("/app.js").text)
+                for login_path in ("/admin/login", "/admin/login/"):
+                    self.assertEqual(client.get(login_path).text, client.get("/").text)
+                self.assertEqual(client.get("/missing.js").status_code, 404)
                 self.assertIn("Import materiału", client.get("/dashboard").text)
                 self.assertIn("openItem", client.get("/dashboard/app.js").text)
                 self.assertEqual(client.get("/health").json()["status"], "ok")

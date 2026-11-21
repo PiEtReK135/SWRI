@@ -185,6 +185,11 @@ def create_app(root=None):
         site = Path(site_dir).resolve()
         if not (site / "index.html").is_file():
             raise ValueError("IW_SITE_DIR musi wskazywać wygenerowaną stronę z plikiem index.html")
+        @app.get("/admin/login", include_in_schema=False)
+        @app.get("/admin/login/", include_in_schema=False)
+        def demo_login():
+            return FileResponse(site / "index.html")
+
         app.mount("/", StaticFiles(directory=site, html=True), name="project-site")
     else:
         app.add_api_route("/", dashboard, include_in_schema=False)

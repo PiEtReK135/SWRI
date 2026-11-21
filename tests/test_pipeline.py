@@ -7,6 +7,7 @@ import unittest
 
 from fastapi.testclient import TestClient
 from investwatch.api import create_app
+from investwatch.media import drawtext_font
 
 
 def await_report(client, job):
@@ -22,7 +23,7 @@ def await_report(client, job):
 def create_clip(path, text="Tatry w listopadzie"):
     subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i",
                     "color=c=0x182932:s=640x360:r=12:d=24", "-vf",
-                    f"drawtext=text='{text}':x=25:y=150:fontsize=24:fontcolor=white:"
+                    f"drawtext={drawtext_font()}text='{text}':x=25:y=150:fontsize=24:fontcolor=white:"
                     "enable='between(t,18,22)'", "-c:v", "libx264", "-threads", "2", str(path)],
                    check=True)
 

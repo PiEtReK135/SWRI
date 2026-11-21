@@ -124,7 +124,7 @@ class Store:
             if "audio" in streams and (not segments or not meta.get("captions_complete")):
                 self.state(job, "TRANSCRIBING")
                 try:
-                    segments.extend(media.asr(path, work))
+                    segments.extend(media.asr(path))
                 except Exception as error:
                     gaps.append(f"ASR niedostępne ({type(error).__name__}); sprawdź lokalny model.")
             if "video" in streams:

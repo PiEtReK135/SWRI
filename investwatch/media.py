@@ -4,6 +4,7 @@ import hashlib
 import io
 import json
 import os
+from pathlib import Path
 import re
 import subprocess
 
@@ -65,24 +66,31 @@ def probe(path):
     return duration, {row["codec_type"] for row in info["streams"]}
 
 
-def asr(path, work):
-    from faster_whisper import WhisperModel
+def drawtext_font():
+    if os.name == "nt":
+        font = Path(os.environ["WINDIR"]) / "Fonts" / "arial.ttf"
+        if font.is_file():
+            escaped = font.as_posix().replace(":", r"\:")
+            return f"fontfile='{escaped}':"
+    return ""
 
-    wav = work / "audio.wav"
-    command(["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-threads", "2",
-             *local_format(path), "-i", str(path), "-vn", "-ac", "1",
-             "-ar", "16000", str(wav)])
-    try:
-        model = WhisperModel(os.environ.get("IW_WHISPER_MODEL", "base"),
-                             device="cpu", compute_type="int8", cpu_threads=4,
-                             num_workers=1, local_files_only=True)
-        chunks, info = model.transcribe(str(wav), beam_size=1, vad_filter=True)
-        return [segment("ASR", chunk.text.strip(), round(chunk.start * 1000),
-                        round(chunk.end * 1000), language=info.language,
-                        avg_logprob=chunk.avg_logprob, model="faster-whisper/" +
-                        os.environ.get("IW_WHISPER_MODEL", "base")) for chunk in chunks]
-    finally:
-        wav.unlink(missing_ok=True)
+
+def asr(path):
+    from faster_whisper import WhisperModel
+    import numpy as np
+
+    pcm = command(["ffmpeg", "-nostdin", "-loglevel", "error", "-threads", "2",
+                   *local_format(path), "-i", str(path), "-vn", "-ac", "1",
+                   "-ar", "16000", "-f", "f32le", "pipe:1"])
+    audio = np.frombuffer(pcm, dtype="<f4")
+    model_path = os.environ.get("IW_WHISPER_MODEL", "base")
+    model = WhisperModel(model_path, device="cpu", compute_type="int8", cpu_threads=4,
+                         num_workers=1, local_files_only=True)
+    chunks, info = model.transcribe(audio, beam_size=1, vad_filter=True)
+    return [segment("ASR", chunk.text.strip(), round(chunk.start * 1000),
+                    round(chunk.end * 1000), language=info.language,
+                    avg_logprob=chunk.avg_logprob, model="faster-whisper/" + model_path)
+            for chunk in chunks]
 
 
 def ocr(path, duration, clips, work):

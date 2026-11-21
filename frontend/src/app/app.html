@@ -1,0 +1,148 @@
+<a class="skip-link" href="#tresc">Przejdź do treści</a>
+
+<header class="site-header" id="start">
+  <div class="shell header-inner">
+    <a class="wordmark" href="#start" aria-label="SWRI — początek strony">
+      <span class="brand-mark" aria-hidden="true"></span>SWRI
+    </a>
+    <nav aria-label="Sekcje strony">
+      @for (item of navigation; track item.id) {
+        <a [href]="'#' + item.id">{{ item.label }}</a>
+      }
+    </nav>
+    <a class="login-link" href="/dashboard">Otwórz panel</a>
+  </div>
+</header>
+
+<main id="tresc" tabindex="-1">
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="shell hero-layout">
+      <div class="hero-copy">
+        <p class="eyebrow">HackNation 2026 / InvestWatch</p>
+        <h1 id="hero-title">Reklamy inwestycyjne <em>pod lupą.</em></h1>
+        <p class="intro">SWRI to projekt, który pomoże odnajdywać reklamy inwestycyjne w internecie i oceniać, jak przedstawiają ryzyko. Zaczynamy od rolek i krótkich filmów w mediach społecznościowych.</p>
+        <div class="hero-links">
+          <a class="primary-link" href="#moduly">Poznaj oba moduły</a>
+          <a class="secondary-link" href="#agenci">Jak to działa</a>
+        </div>
+      </div>
+
+      <figure class="hero-diagram" aria-labelledby="diagram-title">
+        <figcaption id="diagram-title">Dwa moduły, wspólne źródła</figcaption>
+        <div class="diagram-source">
+          <span class="video-icon" aria-hidden="true"></span>
+          <p>Rolki, filmy i posty</p>
+        </div>
+        <div class="diagram-branches">
+          @for (module of projectModules; track module.id) {
+            <div class="diagram-branch">
+              <span>Moduł {{ module.id }}</span>
+              <strong>{{ module.shortTitle }}</strong>
+            </div>
+          }
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <section class="shell overview" id="opis" tabindex="-1" aria-labelledby="opis-title">
+    <p class="eyebrow">Opis projektu</p>
+    <h2 id="opis-title">Sprawdzamy, kto reklamuje inwestycje i jak mówi o ryzyku.</h2>
+    <p>Interesują nas dwa obszary. Pierwszy to reklamy udostępniane przez finfluencerów i inne osoby lub podmioty trzecie. Drugi to sposób, w jaki same firmy inwestycyjne informują o ryzyku w swoich materiałach.</p>
+  </section>
+
+  <section class="modules" id="moduly" tabindex="-1" aria-labelledby="moduly-title">
+    <div class="shell">
+      <h2 id="moduly-title">Dwa moduły SWRI</h2>
+      <div class="module-grid">
+        @for (module of projectModules; track module.id) {
+          <article class="module-card">
+            <p class="eyebrow">Moduł {{ module.id }}</p>
+            <h3>{{ module.title }}</h3>
+            <p>{{ module.description }}</p>
+            <p class="module-result"><strong>Planowany wynik</strong>{{ module.result }}</p>
+          </article>
+        }
+      </div>
+    </div>
+  </section>
+
+  <section class="mission" id="misja" tabindex="-1" aria-labelledby="misja-title">
+    <div class="shell mission-inner">
+      <p class="eyebrow">Misja</p>
+      <h2 id="misja-title">Ryzyko powinno być tak samo łatwe do zauważenia jak obietnica zysku.</h2>
+      <p>Chcemy ułatwić odnajdywanie reklam i wskazywać materiały, w których odbiorca może przeoczyć ważne ostrzeżenie.</p>
+    </div>
+  </section>
+
+  <section class="process" id="agenci" tabindex="-1" aria-labelledby="agenci-title">
+    <div class="shell section-layout">
+      <div>
+        <h2 id="agenci-title">Jak to działa</h2>
+        <p class="section-intro">Jeden agent ma wyszukiwać materiały dla obu modułów. Czterech pozostałych ma oceniać treści zakwalifikowane do modułu 2.</p>
+      </div>
+      <div class="workflow">
+        <div class="discovery">
+          <p class="eyebrow">Wyszukiwanie</p>
+          <h3>Agent przegląda materiały</h3>
+          <p>Zbiera adresy rolek, filmów i postów oraz ustala, kto je opublikował. Materiały własne firm inwestycyjnych kieruje do oceny informacji o ryzyku.</p>
+        </div>
+        <div class="assessment">
+          <p class="eyebrow">Ocena materiału</p>
+          <ul class="agent-list">
+            @for (area of reviewAreas; track area.name) {
+              <li>{{ area.name }}</li>
+            }
+          </ul>
+          <p>Każdy z czterech agentów sprawdza inny zestaw kryteriów. Planowany raport zbiera uwagi wraz ze znacznikiem czasu, gdy da się wskazać konkretny moment filmu.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="shell section-layout criteria" id="kryteria" tabindex="-1" aria-labelledby="kryteria-title">
+    <div>
+      <h2 id="kryteria-title">Kryteria</h2>
+      <p class="section-intro">Kryteria modułu 2 na podstawie dokumentu „Zasób dla uczestników — InvestWatch”.</p>
+    </div>
+    <div class="criteria-list">
+      @for (area of reviewAreas; track area.name) {
+        <details>
+          <summary>{{ area.name }}</summary>
+          <ul>
+            @for (criterion of area.criteria; track criterion.id) {
+              <li>
+                <span class="criterion-id">{{ criterion.id }}</span>
+                <div>
+                  <strong>{{ criterion.title }}</strong>
+                  <p>{{ criterion.description }}</p>
+                </div>
+              </li>
+            }
+          </ul>
+        </details>
+      }
+    </div>
+  </section>
+
+  <div class="shell closing">
+    <section id="prawne" tabindex="-1" aria-labelledby="prawne-title">
+      <h2 id="prawne-title">Prawne</h2>
+
+    </section>
+    <section id="kontakt" tabindex="-1" aria-labelledby="kontakt-title">
+      <h2 id="kontakt-title">Kontakt</h2>
+      <p>W sprawach wyzwania InvestWatch mentorzy są dostępni przy stoisku UKNF i na kanale Discord <strong>#InvestWatch</strong>.</p>
+    </section>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="shell footer-inner">
+    <a class="wordmark" href="#start" aria-label="SWRI — wróć na początek strony">
+      <span class="brand-mark" aria-hidden="true"></span>SWRI
+    </a>
+    <p>Projekt konkursowy · HackNation 2026<br>
+      <a href="/admin/login">Logowanie demonstracyjne</a></p>
+  </div>
+</footer>
