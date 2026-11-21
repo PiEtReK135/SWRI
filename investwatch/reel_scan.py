@@ -1,7 +1,6 @@
 """Opaque feed client and a separate, durable scanning queue."""
 
 from collections import Counter
-from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import json
 import logging
@@ -15,10 +14,11 @@ from urllib.request import build_opener, HTTPRedirectHandler, ProxyHandler, Requ
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 
 from .reel_review import classify, collect
 from .reels import database, initialize, MAX_BYTES
+from .scan_history import migrate_reports, snapshot, store_report, unpack
 
 STRATEGIES = {"Przewiń": None, "Krótszy seans": ("watch", 0.35),
               "Dłuższy seans": ("watch", 0.90), "Zapisz": ("save", 1.0)}
@@ -59,6 +59,10 @@ class FeedClient:
             result = json.load(response)
         return result[0] if result else None
 
+    def item(self, reel):
+        with self._request(f"/posts/{reel}") as response:
+            return json.load(response)
+
     def asset(self, item, destination):
         if not REEL_ID.fullmatch(item["id"]):
             raise ValueError("Niepoprawny identyfikator rolki w feedzie")
@@ -82,9 +86,9 @@ class FeedClient:
 class Strategy:
     """UCB balances exploration and observed relevant recommendations."""
 
-    def __init__(self):
-        self.trials = Counter()
-        self.hits = Counter()
+    def __init__(self, previous=()):
+        self.trials = Counter({item["name"]: item["trials"] for item in previous if item["name"] in STRATEGIES})
+        self.hits = Counter({item["name"]: item["hits"] for item in previous if item["name"] in STRATEGIES})
 
     def choose(self):
         return max(STRATEGIES, key=lambda arm: (
@@ -119,7 +123,19 @@ class Scanner:
                 seconds REAL NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(run,reel)
             );
             CREATE INDEX IF NOT EXISTS reports_reel ON scan_reports(reel, saved DESC);
+            CREATE TABLE IF NOT EXISTS scan_lines (
+                run TEXT NOT NULL, reel TEXT NOT NULL, position INTEGER NOT NULL, kind TEXT NOT NULL,
+                start_ms INTEGER, end_ms INTEGER, quote TEXT NOT NULL, metadata TEXT NOT NULL,
+                PRIMARY KEY(run,reel,position),
+                FOREIGN KEY(run,reel) REFERENCES scan_reports(run,reel)
+            );
+            CREATE TABLE IF NOT EXISTS scan_settings (
+                id INTEGER PRIMARY KEY CHECK(id=1), reset_at TEXT NOT NULL, viewer TEXT NOT NULL
+            );
+            INSERT OR IGNORE INTO scan_settings VALUES (1,'','scout-local-v2');
         """)
+        with database(self.path) as db:
+            migrate_reports(db)
 
     def recover(self):
         with database(self.path) as db:
@@ -129,15 +145,19 @@ class Scanner:
     def active(self):
         return self.thread is not None and self.thread.is_alive()
 
-    def start(self):
+    def start(self, reel: str | None = None):
+        if reel and not REEL_ID.fullmatch(reel):
+            raise HTTPException(400, "Niepoprawna rolka")
         with self.lock:
             if self.active():
+                if reel:
+                    raise HTTPException(409, "Poczekaj na koniec bieżącej sesji")
                 return self.status()
             run = uuid4().hex
             with database(self.path) as db:
                 db.execute("INSERT INTO scan_runs(id,status,started) VALUES (?,?,?)", (run, "STARTING", stamp()))
             self.stopping.clear()
-            self.thread = Thread(target=self.run, args=(run,), name="reel-scanner", daemon=True)
+            self.thread = Thread(target=self.run, args=(run, reel), name="reel-scanner", daemon=True)
             self.thread.start()
             return self.status()
 
@@ -155,10 +175,32 @@ class Scanner:
         if self.thread:
             self.thread.join()
 
-    def status(self):
+    def reset(self):
+        with self.lock:
+            if self.active():
+                raise HTTPException(409, "Zatrzymaj skanowanie przed resetem")
+            with database(self.path) as db:
+                db.execute("UPDATE scan_settings SET reset_at=?,viewer=? WHERE id=1",
+                           (stamp(), "scout-" + uuid4().hex))
+            return self.status()
+
+    def sessions(self):
         with database(self.path) as db:
-            row = db.execute("SELECT * FROM scan_runs ORDER BY started DESC LIMIT 1").fetchone()
+            return [dict(row) for row in db.execute("""
+                SELECT scan_runs.id,started,ended,status,COUNT(scan_reports.reel) AS scanned
+                FROM scan_runs LEFT JOIN scan_reports ON scan_runs.id=scan_reports.run
+                WHERE started>(SELECT reset_at FROM scan_settings WHERE id=1)
+                GROUP BY scan_runs.id ORDER BY started DESC
+            """)]
+
+    def status(self, session: str | None = None):
+        with database(self.path) as db:
+            row = db.execute("""SELECT * FROM scan_runs WHERE (? IS NULL OR id=?)
+                                 AND started>(SELECT reset_at FROM scan_settings WHERE id=1)
+                                 ORDER BY started DESC LIMIT 1""", (session, session)).fetchone()
             if row is None:
+                if session:
+                    raise HTTPException(404, "Podgląd tej sesji nie jest dostępny")
                 return {"status": "IDLE", "scanned": 0, "strategies": []}
             decisions = dict(db.execute("""
                 SELECT json_extract(payload,'$.decision'),COUNT(*) FROM scan_reports WHERE run=? GROUP BY 1
@@ -167,27 +209,29 @@ class Scanner:
         return {**dict(row), "strategies": json.loads(row["strategies"]), "scanned": sum(decisions.values()),
                 "decisions": decisions, "average_seconds": average}
 
-    def reports(self, decision=None, risk=None, limit=100, offset=0):
+    def reports(self, decision=None, risk=None, limit=100, offset=0, session=None):
         conditions = """FROM (
-            SELECT *, ROW_NUMBER() OVER (PARTITION BY reel ORDER BY saved DESC) AS position
-            FROM scan_reports
+            SELECT scan_reports.*, ROW_NUMBER() OVER (PARTITION BY reel ORDER BY saved DESC) AS position
+            FROM scan_reports JOIN scan_runs ON scan_reports.run=scan_runs.id
+            WHERE started>(SELECT reset_at FROM scan_settings WHERE id=1) AND (? IS NULL OR run=?)
         ) WHERE position=1 AND (? IS NULL OR json_extract(payload,'$.decision')=?)
           AND (? IS NULL OR json_extract(payload,'$.risk')=?)"""
-        params = (decision, decision, risk, risk)
+        params = (session, session, decision, decision, risk, risk)
         order = ("CASE json_extract(payload,'$.risk') WHEN 'HIGH' THEN 3 WHEN 'MEDIUM' THEN 2 "
                  "WHEN 'LOW' THEN 1 ELSE 0 END DESC, " if decision == "REVIEW" else "")
         with database(self.path) as db:
             total = db.execute("SELECT COUNT(*) " + conditions, params).fetchone()[0]
             page = db.execute("SELECT * " + conditions + " ORDER BY " + order + "saved DESC LIMIT ? OFFSET ?",
                               (*params, limit, offset)).fetchall()
-        return {"total": total, "items": [self.summary(row) for row in page]}
+            return {"total": total, "items": [self.summary(row, unpack(db, row)) for row in page]}
 
     def ratings(self):
         with database(self.path) as db:
             rows = db.execute("""
                 SELECT payload FROM (
                     SELECT payload, ROW_NUMBER() OVER (PARTITION BY reel ORDER BY saved DESC) AS position
-                    FROM scan_reports
+                    FROM scan_reports JOIN scan_runs ON scan_reports.run=scan_runs.id
+                    WHERE started>(SELECT reset_at FROM scan_settings WHERE id=1)
                 ) WHERE position=1 AND json_extract(payload,'$.decision')='REVIEW'
             """).fetchall()
         ratings = {}
@@ -209,18 +253,21 @@ class Scanner:
         return sorted(output, key=lambda item: (-item["priority"], -item["count"], item["name"]))
 
     @staticmethod
-    def summary(row):
-        report = json.loads(row["payload"])
+    def summary(row, report):
         return {key: report[key] for key in (
             "title", "creator", "role", "decision", "risk", "modules", "companies", "url", "reasons"
-        )} | {"run": row["run"], "reel": row["reel"], "seconds": row["seconds"], "saved": row["saved"]}
+        )} | {"run": row["run"], "reel": row["reel"], "seconds": row["seconds"], "saved": row["saved"],
+              "category": report.get("category", "Temat nieustalony"), "market_language": report.get("market_language")}
 
     def detail(self, run, reel):
         with database(self.path) as db:
-            row = db.execute("SELECT * FROM scan_reports WHERE run=? AND reel=?", (run, reel)).fetchone()
-        if row is None:
-            raise HTTPException(404, "Brak wyniku analizy")
-        return {**self.summary(row), **json.loads(row["payload"])}
+            row = db.execute("""SELECT scan_reports.* FROM scan_reports JOIN scan_runs ON scan_reports.run=scan_runs.id
+                                WHERE run=? AND reel=? AND started>(SELECT reset_at FROM scan_settings WHERE id=1)""",
+                             (run, reel)).fetchone()
+            if row is None:
+                raise HTTPException(404, "Brak wyniku analizy")
+            report = unpack(db, row, detail=True)
+            return {**self.summary(row, report), **report}
 
     def progress(self, run, status, current=None):
         with database(self.path) as db:
@@ -249,16 +296,20 @@ class Scanner:
             elif not asset.is_file():
                 shutil.rmtree(work, ignore_errors=True)
 
-    def run(self, run):
+    def run(self, run, reel=None):
         seen = []
-        strategy = Strategy()
+        with database(self.path) as db:
+            settings = db.execute("SELECT * FROM scan_settings WHERE id=1").fetchone()
+            past = db.execute("""SELECT strategies FROM scan_runs WHERE started>? AND strategies!='[]'
+                                 ORDER BY started DESC LIMIT 1""", (settings["reset_at"],)).fetchone()
+        strategy = Strategy(json.loads(past[0]) if past and not reel else ())
         previous = None
         status, error = "COMPLETED", None
         waiting_since = None
         try:
-            client = FeedClient(self.origin, "scout-" + run)
+            client = FeedClient(self.origin, settings["viewer"])
             while not self.stopping.is_set() and len(seen) < 200:
-                item = client.next(seen)
+                item = client.item(reel) if reel else client.next(seen)
                 if item is None:
                     self.progress(run, "WAITING")
                     waiting_since = waiting_since or monotonic()
@@ -273,10 +324,18 @@ class Scanner:
                 before = perf_counter()
                 report = self.analyze(client, run, item)
                 if previous is not None and report["decision"] != "UNRESOLVED":
-                    strategy.observe(previous, report["financial"])
+                    strategy.observe(previous, report["financial"] and report["decision"] != "OUT_OF_MARKET")
                 previous = None
                 report["feedback"] = "Brak ujemnego sygnału"
-                if report["decision"] == "OUT_OF_SCOPE":
+                if reel:
+                    report["feedback"] = "Analiza ręcznie wybranej rolki. Preferencje pozostają bez zmian."
+                elif report["decision"] == "OUT_OF_MARKET":
+                    try:
+                        client.signal(item["id"], "hide")
+                        report["feedback"] = "Pominięto rolkę spoza rynku bez obniżania preferencji jej tematu."
+                    except OSError:
+                        report["feedback"] = "Platforma nie zapisała pominięcia rolki."
+                elif report["decision"] == "OUT_OF_SCOPE":
                     try:
                         client.signal(item["id"], "not_interested")
                         report["feedback"] = "Oznaczono „Nie interesuje mnie” w profilu skanera."
@@ -294,13 +353,14 @@ class Scanner:
                         previous = arm
                         report["feedback"] = "Strategia obserwacji: " + arm
                 with database(self.path) as db:
-                    db.execute("INSERT INTO scan_reports VALUES (?,?,?,?,?)", (
-                        run, item["id"], stamp(), round(perf_counter() - before, 2),
-                        json.dumps({"title": item["title"], "kind": item["kind"], **report}, ensure_ascii=False)
-                    ))
-                    db.execute("UPDATE scan_runs SET strategies=? WHERE id=?",
-                               (json.dumps(strategy.report(), ensure_ascii=False), run))
+                    store_report(db, run, item["id"], stamp(), round(perf_counter() - before, 2),
+                                 {"title": item["title"], "kind": item["kind"], **report})
+                    if not reel:
+                        db.execute("UPDATE scan_runs SET strategies=? WHERE id=?",
+                                   (json.dumps(strategy.report(), ensure_ascii=False), run))
                 seen.append(item["id"])
+                if reel:
+                    break
             if self.stopping.is_set():
                 status = "STOPPED"
         except Exception as failure:
@@ -317,19 +377,31 @@ def scan_routes(scanner):
     router.get("/status")(scanner.status)
     router.post("/start", status_code=202)(scanner.start)
     router.post("/stop")(scanner.stop)
+    router.post("/reset")(scanner.reset)
+    router.get("/sessions")(scanner.sessions)
     router.get("/ratings")(scanner.ratings)
     router.get("/reports/{run}/{reel}")(scanner.detail)
 
     @router.get("/reports")
     def reports(decision: str | None = None, risk: str | None = None, limit: int = Query(20, ge=1, le=100),
-                offset: int = Query(0, ge=0)):
-        return scanner.reports(decision, risk, limit, offset)
+                offset: int = Query(0, ge=0), session: str | None = None):
+        return scanner.reports(decision, risk, limit, offset, session)
+
+    @router.get("/sessions/{run}/preview")
+    def preview(run: str, download: bool = False):
+        state = scanner.status(run)
+        if not state.get("ended"):
+            raise HTTPException(409, "Podgląd będzie dostępny po zakończeniu sesji")
+        items = scanner.reports(limit=-1, session=run)["items"]
+        headers = {"Content-Disposition": f'attachment; filename="swri-podglad-{run[:10]}.html"'} if download else {}
+        return HTMLResponse(snapshot(state, items), headers=headers)
 
     @router.get("/evidence/{run}/{reel}/{name}")
     def evidence(run: str, reel: str, name: str):
         if (not REEL_ID.fullmatch(run) or not REEL_ID.fullmatch(reel)
                 or not re.fullmatch(r"frame-(?:[0-9]+\.png|still\.jpg)", name)):
             raise HTTPException(404)
+        scanner.status(run)
         path = scanner.root / "evidence" / run / reel / name
         if not path.is_file():
             raise HTTPException(404, "Brak klatki")

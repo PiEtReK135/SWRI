@@ -24,9 +24,14 @@ $LocalTessdata = Join-Path $Data "tessdata"
 if (Test-Path (Join-Path $LocalTessdata "pol.traineddata")) {
     $env:TESSDATA_PREFIX = (Resolve-Path $LocalTessdata).Path
 }
-$LocalModel = Join-Path $Data "models/whisper-base"
-if (-not $env:IW_WHISPER_MODEL -and (Test-Path (Join-Path $LocalModel "model.bin"))) {
-    $env:IW_WHISPER_MODEL = (Resolve-Path $LocalModel).Path
+if (-not $env:IW_WHISPER_MODEL) {
+    foreach ($Size in @("medium", "small", "base")) {
+        $LocalModel = Join-Path $Data "models/whisper-$Size"
+        if (Test-Path (Join-Path $LocalModel "model.bin")) {
+            $env:IW_WHISPER_MODEL = (Resolve-Path $LocalModel).Path
+            break
+        }
+    }
 }
 if ($SiteDir) { $env:IW_SITE_DIR = (Resolve-Path $SiteDir).Path }
 if ($WithOllama) { $env:IW_OLLAMA_MODEL = "qwen3:1.7b" }

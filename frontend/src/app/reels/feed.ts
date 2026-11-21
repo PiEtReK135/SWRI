@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, signal, viewChild } from '@angular/core';
-import { Engagement, Reel, jsonPost, mediaUrl, request, topics } from './reel-api';
+import { Engagement, Reel, jsonPost, mediaUrl, request } from './reel-api';
 
 @Component({
   selector: 'app-root',
@@ -19,7 +19,6 @@ export class ReelFeed {
   protected readonly showComments = signal(false);
   private readonly publisher = viewChild<ElementRef<HTMLDialogElement>>('publisher');
   protected readonly video = viewChild<ElementRef<HTMLVideoElement>>('video');
-  protected readonly topics = topics;
   protected readonly mediaUrl = mediaUrl;
   protected readonly encodeCreator = encodeURIComponent;
   private readonly items: Reel[] = [];
@@ -230,6 +229,11 @@ export class ReelFeed {
 
   protected closePublisher(): void {
     this.publisher()?.nativeElement.close();
+  }
+
+  protected resetPreferences(): void {
+    localStorage.removeItem('swri-viewer');
+    location.assign('/rolki');
   }
 
   private showError(error: unknown): void {

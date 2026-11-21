@@ -11,7 +11,7 @@ import httpx
 import uvicorn
 
 from investwatch.api import create_app
-from investwatch.media import command, drawtext_font, ocr_batch, probe, segment
+from investwatch.media import command, credible_ocr_line, drawtext_font, ocr_batch, probe, segment
 from investwatch.reel_review import classify
 from investwatch.reel_scan import FeedClient, STRATEGIES, Strategy
 from investwatch.reels import TOPICS
@@ -28,6 +28,36 @@ def result(*rows, registry=(), profile="", coverage=None):
 
 
 class ClassificationTest(TestCase):
+    def test_financial_promotion_and_public_crypto_advice_are_separate(self):
+        report = result(
+            segment("ASR", "Pewnie słyszeliście o promocji nowego maklera.", 0, 9000, language="pl"),
+            segment("ASR", "Możecie dostać 150 złotych bonusów, które zainwestujecie w 100% Bitcoina.", 9000, 17000,
+                    language="pl"),
+        )
+        self.assertEqual(report["decision"], "REVIEW")
+        self.assertEqual(report["modules"], ["M1"])
+        self.assertEqual(report["risk"], "MEDIUM")
+        self.assertTrue(any("Publiczna zachęta" in r["text"] for r in report["reasons"]))
+
+    def test_foreign_audio_and_translated_blurb_does_not_pass_market_gate(self):
+        report = result(segment("ASR", "Hier erklären wir wie ETFs funktionieren.", 0, 9000, language="de"),
+                        segment("DESCRIPTION", "Materiał edukacyjny wyjaśnia, jak działają fundusze."))
+        self.assertEqual(report["market_language"], "de")
+        self.assertEqual(report["decision"], "OUT_OF_MARKET")
+        self.assertEqual(report["modules"], [])
+
+    def test_title_cannot_override_content_or_missing_evidence(self):
+        outcome = classify({"creator": "test", "title": "Rzekomo legalna porada inwestycyjna",
+                            "topic": "Sport"}, [segment("ASR", "Witam wszystkich.", 0, 1000, language="pl")],
+                           COVERAGE, [], [], "", "")
+        self.assertEqual(outcome["decision"], "UNRESOLVED")
+        self.assertEqual(outcome["category"], "Temat nieustalony")
+
+    def test_ocr_drops_short_noisy_fragments(self):
+        self.assertFalse(credible_ocr_line([{"text": "iN", "conf": "82"}, {"text": "M", "conf": "92"}]))
+        self.assertFalse(credible_ocr_line([{"text": "erer", "conf": "83"}]))
+        self.assertTrue(credible_ocr_line([{"text": "BROKER", "conf": "92"}, {"text": "ALFA", "conf": "90"}]))
+
     def test_only_promotional_evidence_can_appear_in_any_channel(self):
         for channel in COVERAGE:
             with self.subTest(channel=channel):
@@ -98,6 +128,9 @@ class RecommendationTest(TestCase):
             first = publish("Finanse A", TOPICS[0])
             second = publish("Finanse B", TOPICS[0])
             third = publish("Kultura A", TOPICS[2])
+            self.assertEqual(client.get(f"/api/reels/posts/{first}").json()["topic"], TOPICS[0])
+            misleading = publish("Desery w domu", TOPICS[0])
+            self.assertEqual(client.get(f"/api/reels/posts/{misleading}").json()["topic"], "Kuchnia")
 
             def top(viewer, seen=()):
                 response = client.get("/api/reels/feed", params=[
@@ -110,10 +143,10 @@ class RecommendationTest(TestCase):
                                        json={"action": action, "value": value})
                 self.assertEqual(response.status_code, 204, response.text)
 
-            self.assertEqual(top("scout-test"), third)
+            self.assertEqual(top("scout-test", (misleading,)), third)
             react(first, "scout-test", "watch", 0.9)
             self.assertEqual(top("scout-test", (first,)), second)
-            self.assertEqual(top("different-viewer"), third)
+            self.assertEqual(top("different-viewer", (misleading,)), third)
             react(third, "scout-test", "not_interested")
             self.assertNotEqual(top("scout-test"), third)
             response = client.get(f"/api/reels/posts/{first}/media", headers={"Range": "bytes=0-3"})
@@ -185,6 +218,22 @@ class RecommendationTest(TestCase):
                     self.assertEqual(client.get(f"/api/scan/evidence/{run}/{reel}/{proof['artifact']}").status_code, 200)
                     self.assertEqual(client.get("/api/scan/reports?decision=REVIEW&risk=HIGH").json()["total"], 1)
                     self.assertTrue(client.get("/api/scan/ratings").json())
+                    self.assertEqual(client.post("/api/scan/reset").status_code, 409)
+                    client.post("/api/scan/stop").raise_for_status()
+                    deadline = monotonic() + 10
+                    while monotonic() < deadline:
+                        if client.get("/api/scan/status").json()["status"] == "STOPPED":
+                            break
+                        sleep(.1)
+                    preview = client.get(f"/api/scan/sessions/{run}/preview?download=true")
+                    self.assertEqual(preview.status_code, 200, preview.text)
+                    self.assertIn("Rolka testowa", preview.text)
+                    self.assertIn("Analiza wykonana lokalnie", preview.text)
+                    self.assertIn("attachment", preview.headers["content-disposition"])
+                    self.assertEqual(client.post("/api/scan/reset").json()["status"], "IDLE")
+                    self.assertEqual(client.get("/api/scan/sessions").json(), [])
+                    self.assertEqual(client.get(f"/api/scan/sessions/{run}/preview").status_code, 404)
+                    self.assertEqual(client.get(f"/api/reels/posts/{reel}").status_code, 200)
             finally:
                 server.should_exit = True
                 thread.join(12)
