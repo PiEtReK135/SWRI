@@ -29,6 +29,18 @@ Pod jednym adresem lokalnym działają strona SWRI pod `/`, panel InvestWatch po
 
 Parametr `-SiteDir` przyjmuje katalog gotowej kompilacji z plikiem `index.html`. Polecenie `.\start.ps1` bez tego parametru otwiera sam panel pod `/`.
 
+### Rolki i lokalny skaner
+
+Na stronie głównej wybierz **Otwórz feed rolek**, a następnie **Dodaj rolkę**, aby opublikować własny film lub zdjęcie. Przycisk **Przejdź do skanowania internetu** otwiera osobną kartę i automatycznie rozpoczyna skan feedu SWRI. Wyniki aktualizują się na stronie głównej w sekcji **Raporty**. Wszystkie decyzje są w zakładce **Informacje szczegółowe**.
+
+Opcjonalnie zaimportuj publicznie dostępne materiały startowe, gdy aplikacja już działa:
+
+```powershell
+node.exe scripts/import_reel_samples.mjs
+```
+
+Import pobiera wskazane materiały ze źródeł wydawców i zapisuje je lokalnie. Sam skaner korzysta z lokalnego API feedu. [Architektura, algorytmy, źródła i wariant hostingu](docs/reels.md).
+
 ### Opcjonalne lokalne modele
 
 ```powershell

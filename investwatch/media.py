@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import tempfile
 
 MAX_SECONDS = 300
 STAMP = r"(?:\d{2}:)?\d{2}:\d{2}[,.]\d{3}"
@@ -93,12 +94,75 @@ def asr(path):
             for chunk in chunks]
 
 
-def ocr(path, duration, clips, work):
+def ocr_languages():
     reasons = command(["tesseract", "--list-langs"]).decode().splitlines()[1:]
     languages = "+".join(lang for lang in ("pol", "eng") if lang in reasons)
     if not languages:
         raise RuntimeError("Brak języków OCR pol/eng")
-    times = set(range(0, int(duration) + 1, 3))
+    return languages
+
+
+def read_ocr(source, languages):
+    output = command(["tesseract", str(source), "stdout", "-l", languages, "--psm", "11",
+                      "-c", "tessedit_create_tsv=1"], timeout=120)
+    pages = {}
+    lines = {}
+    for word in csv.DictReader(io.StringIO(output.decode()), delimiter="\t", quoting=csv.QUOTE_NONE):
+        if word["text"] and float(word["conf"]) >= 35:
+            key = (word["page_num"], word["block_num"], word["par_num"], word["line_num"])
+            if key not in lines:
+                lines[key] = []
+                pages.setdefault(int(word["page_num"]), []).append(lines[key])
+            lines[key].append(word)
+    return pages
+
+
+def ocr_segments(frame, languages, lines, start):
+    if not lines:
+        return
+    digest = hashlib.sha256(frame.read_bytes()).hexdigest()
+    for words in lines:
+        x, y = min(int(w["left"]) for w in words), min(int(w["top"]) for w in words)
+        yield segment("OCR", " ".join(w["text"] for w in words), start,
+                      bbox=[x, y, max(int(w["left"]) + int(w["width"]) for w in words) - x,
+                            max(int(w["top"]) + int(w["height"]) for w in words) - y],
+                      frame_sha256=digest, artifact=frame.name, language=languages)
+
+
+def ocr_frame(frame, languages, start=None):
+    return ocr_segments(frame, languages, read_ocr(frame, languages).get(1, []), start)
+
+
+def ocr_batch(path, duration, clips, work, interval):
+    """Decode once and load the two OCR language packs once per reel."""
+    seconds = set(range(0, int(duration) + 1, interval))
+    seconds.update(row["start_ms"] // 1000 for row in clips if row["start_ms"] is not None)
+    times = sorted(second for second in seconds if 0 <= second < duration)[:130]
+    filters = "+".join(f"eq(n,{second})" for second in times)
+    with tempfile.TemporaryDirectory(dir=work) as temporary:
+        folder = Path(temporary)
+        command(["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-threads", "2", *local_format(path),
+                 "-i", str(path), "-an", "-vf", f"fps=1:start_time=0:round=up,select='{filters}',scale=960:-2",
+                 "-fps_mode", "vfr", "-threads", "1", str(folder / "sample-%03d.png")], timeout=120)
+        frames = sorted(folder.glob("sample-*.png"))
+        # Container duration can include a final audio tail after the last video frame.
+        if not frames or not 0 <= len(times) - len(frames) <= 1:
+            raise RuntimeError("Niepełna ekstrakcja klatek OCR")
+        languages = ocr_languages()
+        manifest = folder / "frames.txt"
+        manifest.write_text("\n".join(str(frame.resolve()) for frame in frames) + "\n", encoding="utf-8")
+        pages = read_ocr(manifest, languages)
+        for page, (second, frame) in enumerate(zip(times, frames), 1):
+            if page not in pages:
+                continue
+            published = work / f"frame-{second}.png"
+            frame.replace(published)
+            yield from ocr_segments(published, languages, pages[page], second * 1000)
+
+
+def ocr(path, duration, clips, work, interval=3):
+    languages = ocr_languages()
+    times = set(range(0, int(duration) + 1, interval))
     times.update(s["start_ms"] // 1000 for s in clips
                  if s["start_ms"] is not None and 0 <= s["start_ms"] < duration * 1000)
     for second in sorted(t for t in times if t < duration)[:130]:
@@ -108,19 +172,7 @@ def ocr(path, duration, clips, work):
                  "-frames:v", "1", "-vf", "scale=960:-2", "-threads", "1", str(frame)])
         if not frame.exists():
             continue
-        output = command(["tesseract", str(frame), "stdout", "-l", languages, "--psm", "11", "-c", "tessedit_create_tsv=1"])
-        lines = {}
-        for word in csv.DictReader(io.StringIO(output.decode()), delimiter="\t", quoting=csv.QUOTE_NONE):
-            if word["text"] and float(word["conf"]) >= 35:
-                key = (word["block_num"], word["par_num"], word["line_num"])
-                lines.setdefault(key, []).append(word)
-        if not lines:
+        rows = list(ocr_frame(frame, languages, second * 1000))
+        if not rows:
             frame.unlink()
-            continue
-        digest = hashlib.sha256(frame.read_bytes()).hexdigest()
-        for words in lines.values():
-            x, y = min(int(w["left"]) for w in words), min(int(w["top"]) for w in words)
-            yield segment("OCR", " ".join(w["text"] for w in words), second * 1000,
-                          bbox=[x, y, max(int(w["left"]) + int(w["width"]) for w in words) - x,
-                                max(int(w["top"]) + int(w["height"]) for w in words) - y],
-                          frame_sha256=digest, artifact=frame.name, language=languages)
+        yield from rows

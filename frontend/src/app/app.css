@@ -321,6 +321,7 @@ details li { display: grid; grid-template-columns: 2.35rem 1fr; gap: .7rem; padd
 details p { color: var(--muted); }
 
 .closing { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(2rem, 7vw, 7rem); border-top: 1px solid var(--line); }
+.live-reports { background: #f5f8ff; border-bottom: 1px solid var(--line); padding: clamp(2.25rem, 6vw, 4.5rem) 0; }
 .site-footer { border-top: 1px solid var(--line); }
 .footer-inner p { color: var(--muted); font-size: .875rem; }
 

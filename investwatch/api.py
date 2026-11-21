@@ -15,6 +15,8 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from .store import Store, now
+from .reel_scan import Scanner, scan_routes
+from .reels import create_platform
 
 WEB = Path(__file__).parent / "web"
 MEDIA = {".mp4", ".mp3", ".wav", ".webm", ".m4a", ".mov"}
@@ -74,16 +76,22 @@ def submit(store, meta, files=()):
 
 def create_app(root=None):
     store = Store(root or os.environ.get("IW_DATA", "data"))
+    scanner = Scanner(store.root / "reel-scan",
+                      os.environ.get("IW_REELS_ORIGIN", "http://127.0.0.1:8000"), store.registry)
 
     @asynccontextmanager
     async def lifespan(app):
         stop = Event()
         from .monitor import tick
         process = Thread(target=store.run, args=(stop, tick), daemon=True)
+        scanner.recover()
         process.start()
-        yield
-        stop.set()
-        process.join()
+        try:
+            yield
+        finally:
+            stop.set()
+            scanner.close()
+            process.join()
 
     app = FastAPI(title="InvestWatch", lifespan=lifespan)
     app.state.store = store
@@ -180,6 +188,8 @@ def create_app(root=None):
 
     from .monitor import attach
     attach(app, store, get_item, submit)
+    app.include_router(create_platform(store.root / "reels"))
+    app.include_router(scan_routes(scanner))
     site_dir = os.environ.get("IW_SITE_DIR")
     if site_dir:
         site = Path(site_dir).resolve()
@@ -187,7 +197,11 @@ def create_app(root=None):
             raise ValueError("IW_SITE_DIR musi wskazywać wygenerowaną stronę z plikiem index.html")
         @app.get("/admin/login", include_in_schema=False)
         @app.get("/admin/login/", include_in_schema=False)
-        def demo_login():
+        @app.get("/rolki", include_in_schema=False)
+        @app.get("/rolki/", include_in_schema=False)
+        @app.get("/skanowanie", include_in_schema=False)
+        @app.get("/skanowanie/", include_in_schema=False)
+        def angular_page():
             return FileResponse(site / "index.html")
 
         app.mount("/", StaticFiles(directory=site, html=True), name="project-site")

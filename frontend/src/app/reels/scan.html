@@ -1,0 +1,41 @@
+<header class="scan-nav">
+  <a class="scan-brand" href="/"><span></span> SWRI / InvestWatch</a>
+  <a href="/rolki">Otwórz feed rolek</a>
+</header>
+<main class="scan-main">
+  <section class="scan-hero" aria-labelledby="scan-title">
+    <div class="scan-heading">
+      <div>
+        <h1 id="scan-title">Skaner rolek</h1>
+        <p>Źródło: lokalny feed SWRI. Skaner sprawdza opis, dźwięk i tekst na ekranie.</p>
+      </div>
+      @if (state(); as scan) {
+        <div class="scan-status" role="status">{{ labels[scan.status] || scan.status }}</div>
+      }
+    </div>
+    <div class="metrics" aria-label="Postęp skanowania" aria-live="polite">
+      <div><strong>{{ state()?.scanned || 0 }}</strong><span>Zeskanowane rolki</span></div>
+      <div><strong>{{ state()?.decisions?.['REVIEW'] || 0 }}</strong><span>Do sprawdzenia</span></div>
+      <div><strong>{{ state()?.decisions?.['OUT_OF_SCOPE'] || 0 }}</strong><span>Odrzucone</span></div>
+      <div><strong>{{ state()?.average_seconds ?? '—' }}</strong><span>Sekund na rolkę</span></div>
+    </div>
+    @if (state()?.current) { <p class="scan-current">W analizie: {{ state()?.current }}</p> }
+    @if (state()?.error) { <p class="scan-error" role="alert">Sesja przerwana. Kod błędu: {{ state()?.error }}</p> }
+    @if (error()) { <p class="scan-error" role="alert">{{ error() }}</p> }
+    <div class="scan-actions">
+      @if (active.has(state()?.status || '')) {
+        <button type="button" (click)="action('stop')" [disabled]="waiting() || state()?.status === 'STOPPING'">Zatrzymaj</button>
+      } @else {
+        <button type="button" (click)="action('start')" [disabled]="waiting()">Uruchom skan</button>
+      }
+    </div>
+    @if (state()?.strategies?.length) {
+      <details class="strategy">
+        <summary>Skuteczność strategii reakcji w tej sesji</summary>
+        <p>Trafienie oznacza, że kolejna polecona rolka była o finansach.</p>
+        <ul>@for (arm of state()?.strategies; track arm.name) { <li>{{ arm.name }} · {{ arm.hits }} trafień / {{ arm.trials }} obserwacji</li> }</ul>
+      </details>
+    }
+  </section>
+  <reel-reports />
+</main>

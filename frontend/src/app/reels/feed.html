@@ -1,0 +1,100 @@
+<div class="reel-page">
+  <header class="feed-header">
+    <a class="feed-brand" href="/" aria-label="SWRI, strona główna"><span></span>SWRI<span class="brand-slash">/</span> Rolki</a>
+    <nav aria-label="Nawigacja rolek">
+      <a href="/skanowanie">Skaner</a>
+      <button class="publish" type="button" (click)="openPublisher()">Dodaj rolkę</button>
+    </nav>
+  </header>
+
+  <main class="feed-layout">
+    <aside class="feed-intro">
+      <a class="back" href="/">InvestWatch</a>
+      <h1>{{ profile ? '@' + profile : 'Rolki' }}</h1>
+      <p>Oglądaj i publikuj krótkie filmy oraz zdjęcia w lokalnym feedzie.</p>
+      @if (profile) { <a class="back profile-back" href="/rolki">Wszystkie rolki</a> }
+      <div class="browse-actions" aria-label="Przeglądanie">
+        <button type="button" (click)="previous()" [disabled]="index() <= 0 || waiting()">Poprzednia</button>
+        <button type="button" (click)="next()" [disabled]="waiting()">Następna</button>
+      </div>
+      @if (exhausted() && current()) { <p class="feedback" role="status">Nie ma kolejnych rolek.</p> }
+      @if (notice()) { <p class="feedback" role="status">{{ notice() }}</p> }
+      @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+    </aside>
+
+    @if (current(); as item) {
+      <div class="film-column">
+        @for (visible of [item]; track visible.id) {
+          <article class="film" tabindex="0" aria-label="Odtwarzacz rolki" (keydown)="keyboard($event)" (wheel)="wheel($event)"
+                   (touchstart)="touchStart($event)" (touchend)="touchEnd($event)">
+            @if (visible.kind === 'video') {
+              <video #video [src]="mediaUrl(visible.id)" [muted]="!sound()" playsinline autoplay controls
+                     (ended)="recordWatch()" (error)="error.set('Nie udało się odtworzyć filmu.')"></video>
+            } @else {
+              <img [src]="mediaUrl(visible.id)" [alt]="visible.title">
+            }
+            <div class="film-top"><span>{{ visible.topic }}</span>
+              @if (visible.kind === 'video') {
+                <button type="button" [attr.aria-pressed]="sound()" (click)="toggleSound()">{{ sound() ? 'Wycisz' : 'Włącz dźwięk' }}</button>
+              }
+            </div>
+          </article>
+        }
+        <div class="film-caption">
+          <a [href]="'/rolki?autor=' + encodeCreator(item.creator)">&#64;{{ item.creator }}</a>
+          <h2>{{ item.title }}</h2>
+          @if (item.description) { <p>{{ item.description }}</p> }
+          @if (item.credit) { <small>{{ item.credit }} @if (item.source) { · <a [href]="item.source" target="_blank" rel="noopener noreferrer">Źródło i licencja</a> }</small> }
+        </div>
+      </div>
+
+      <aside class="actions-column" aria-label="Akcje rolki">
+        <button type="button" [attr.aria-pressed]="engagement().mine.includes('like')" (click)="react('like')">
+          <span aria-hidden="true">{{ engagement().mine.includes('like') ? '♥' : '♡' }}</span> Lubię <small>{{ engagement().counts['like'] || 0 }}</small>
+        </button>
+        <button type="button" [attr.aria-pressed]="engagement().mine.includes('save')" (click)="react('save')">
+          <span aria-hidden="true">◇</span> Zapisz <small>{{ engagement().counts['save'] || 0 }}</small>
+        </button>
+        <button type="button" [attr.aria-expanded]="showComments()" (click)="showComments.set(!showComments())">
+          <span aria-hidden="true">◌</span> Komentarze <small>{{ engagement().comments.length }}</small>
+        </button>
+        <button type="button" (click)="react('share')"><span aria-hidden="true">⎘</span> Skopiuj link</button>
+        <button type="button" (click)="react('not_interested')"><span aria-hidden="true">⊘</span> Nie interesuje mnie</button>
+        @if (showComments()) {
+          <section class="comments" aria-label="Komentarze">
+            <form (submit)="comment($event)">
+              <label for="comment">Dodaj komentarz</label>
+              <textarea id="comment" name="text" required maxlength="600"></textarea>
+              <button type="submit">Opublikuj</button>
+            </form>
+            @for (text of engagement().comments; track $index) { <p>{{ text }}</p> }
+          </section>
+        }
+      </aside>
+    } @else {
+      <section class="empty-feed" aria-live="polite">
+        @if (waiting()) { <h2>Wczytywanie feedu…</h2> }
+        @else {
+          <h2>Brak rolek do wyświetlenia</h2>
+          <button class="publish" type="button" (click)="openPublisher()">Dodaj rolkę</button>
+        }
+      </section>
+    }
+  </main>
+
+  <dialog #publisher class="publisher">
+    <div class="dialog-header"><h2>Dodaj rolkę</h2><button type="button" (click)="closePublisher()">Zamknij</button></div>
+    <form (submit)="publish($event)">
+      <label>Film lub obraz <input type="file" required name="file" accept=".mp4,.mov,.webm,.jpg,.jpeg,.png,.webp"></label>
+      <label>Tytuł <input name="title" required maxlength="120"></label>
+      <label>Profil autora <input name="creator" required maxlength="64" placeholder="np. twoj_profil"></label>
+      <label>Opis <textarea name="description" rows="3" maxlength="4000"></textarea></label>
+      <label>Temat <select name="topic">@for (topic of topics; track topic) { <option>{{ topic }}</option> }</select></label>
+      <label>Autor i licencja <input name="credit" maxlength="280"></label>
+      <label class="confirm"><input type="checkbox" name="rights_confirmed" required value="true"> Mam prawo do publikacji tego materiału.</label>
+      <p>Film do 5 minut i 150 MB, obraz do 20 MB.</p>
+      @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+      <button class="publish" [disabled]="publishing()" type="submit">{{ publishing() ? 'Przygotowywanie pliku…' : 'Opublikuj rolkę' }}</button>
+    </form>
+  </dialog>
+</div>

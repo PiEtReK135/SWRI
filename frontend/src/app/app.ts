@@ -1,11 +1,13 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { projectModules } from './project-modules';
 import { reviewAreas } from './review-criteria';
+import { ReelReports } from './reels/reports';
 
 @Component({
   selector: 'app-root',
   templateUrl: './app.html',
   styleUrl: './app.css',
+  imports: [ReelReports],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class App {
@@ -13,6 +15,7 @@ export class App {
   protected readonly reviewAreas = reviewAreas;
 
   protected readonly navigation = [
+    { id: 'analiza', label: 'Raporty' },
     { id: 'opis', label: 'Opis' },
     { id: 'moduly', label: 'Moduły' },
     { id: 'misja', label: 'Misja' },

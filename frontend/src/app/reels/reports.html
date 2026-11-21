@@ -1,0 +1,136 @@
+<section class="review-workspace" aria-labelledby="reel-results">
+  <div class="review-heading">
+    <div>
+      <h2 id="reel-results">Przegląd analityczny</h2>
+      <p>Priorytet wskazuje kolejność ręcznej weryfikacji.</p>
+    </div>
+    @if (status(); as state) {
+      <div class="latest-count"><strong>{{ state.scanned }}</strong><span>zeskanowano w ostatniej sesji</span></div>
+    }
+  </div>
+
+  <nav class="review-tabs" aria-label="Widoki analizy">
+    <button type="button" [attr.aria-pressed]="tab() === 'summary'" (click)="show('summary')">Podsumowanie</button>
+    <button type="button" [attr.aria-pressed]="tab() === 'details'" (click)="show('details')">Informacje szczegółowe</button>
+    <button type="button" [attr.aria-pressed]="tab() === 'ratings'" (click)="show('ratings')">Rating reklam</button>
+  </nav>
+
+  @if (error()) { <p class="review-error" role="alert">{{ error() }}</p> }
+  @if (tab() === 'ratings') {
+    <p class="rating-note">Wynik obejmuje zebrane materiały wymagające uwagi. Przy nazwie podano liczebność próby.</p>
+    @for (entry of ratings(); track entry.role + entry.name) {
+      <article class="rating-row">
+        <div><h3>{{ entry.name }}</h3><p>{{ entry.role }} · {{ entry.count }} do sprawdzenia</p></div>
+        <div><strong>{{ entry.priority }}/100</strong><p>Wysoki {{ entry.levels['HIGH'] || 0 }} · Średni {{ entry.levels['MEDIUM'] || 0 }} · Niski {{ entry.levels['LOW'] || 0 }}</p></div>
+      </article>
+    } @empty { <p class="empty-reviews">Rating pojawi się po wykryciu pierwszego materiału do sprawdzenia.</p> }
+  } @else {
+    @if (tab() === 'details') {
+      <label class="filter">Decyzja
+        <select [value]="filter()" (change)="show('details', $any($event.target).value)">
+          <option value="">Wszystkie rolki</option>
+          @for (key of keys(decisions); track key) { <option [value]="key">{{ decisions[key] }}</option> }
+        </select>
+      </label>
+    } @else if (reviews().total || riskFilter()) {
+      <label class="filter">Priorytet
+        <select [value]="riskFilter()" (change)="chooseRisk($event)">
+          <option value="">Wszystkie poziomy</option>
+          @for (key of keys(risks); track key) { <option [value]="key">{{ risks[key] }}</option> }
+        </select>
+      </label>
+    }
+    @for (item of reviews().items; track item.reel) {
+      <article class="review-row">
+        <div class="result-header">
+          <div>
+            <p class="result-byline">&#64;{{ item.creator }} @if (item.modules.length) { · {{ item.modules.join(' / ') }} }</p>
+            <h3>{{ item.title }}</h3>
+          </div>
+          <div class="verdict" [attr.data-risk]="item.risk">{{ item.risk ? risks[item.risk] + ' priorytet' : decisions[item.decision] }}</div>
+        </div>
+        @if (item.reasons[0]; as reason) {
+          <p>{{ reason.text }}</p>
+          @if (reason.evidence[0]; as proof) { <blockquote>„{{ proof.quote }}”</blockquote> }
+        }
+        @if (tab() === 'summary' && item.reasons.length > 1) {
+          <details class="more">
+            <summary>Pozostałe powody ({{ item.reasons.length - 1 }})</summary>
+            <ul>@for (reason of item.reasons.slice(1); track $index) { <li>{{ reason.text }}</li> }</ul>
+          </details>
+        }
+        <div class="row-links">
+          <a [href]="'/rolki?post=' + item.reel">Otwórz rolkę</a>
+          <button type="button" [attr.aria-expanded]="selected() === item.run + '/' + item.reel" (click)="inspect(item)">
+            {{ selected() === item.run + '/' + item.reel ? 'Zwiń raport' : 'Pokaż raport' }}
+          </button>
+        </div>
+        @if (selected() === item.run + '/' + item.reel) {
+          @if (detail(); as report) {
+            <div class="report-detail">
+              <p><strong>{{ decisions[report.decision] }}</strong> · {{ report.seconds }} s · {{ report.role }}</p>
+              @if (report.companies.length) { <p>Wzmianki o firmach: {{ report.companies.join(', ') }}</p> }
+              @if (report.unverified_companies?.length) { <p>Nazwy do zweryfikowania: {{ report.unverified_companies?.join(', ') }}</p> }
+              <p>{{ report.feedback }}</p>
+              <div class="coverage">
+                @for (key of keys(report.coverage); track key) {
+                  <span>{{ channel[key] || key }} · {{ coverageLabels[report.coverage[key]] }}</span>
+                }
+              </div>
+              <h4>Podstawa decyzji</h4>
+              <ol>
+                @for (reason of report.reasons; track $index) {
+                  <li>{{ reason.text }}
+                    @if (reason.evidence.length) {
+                      <ul class="proof">
+                        @for (proof of reason.evidence; track $index) {
+                          <li>{{ channel[proof.kind] || proof.kind }}
+                            @if (proof.start_ms !== null) { · {{ label(proof.start_ms) }} }
+                            <q>{{ proof.quote }}</q>
+                            @if (proof.artifact) { <a [href]="evidence(report, proof.artifact)" target="_blank" rel="noopener">Klatka</a> }
+                          </li>
+                        }
+                      </ul>
+                    }
+                  </li>
+                }
+              </ol>
+              <details>
+                <summary>Zebrane dane ({{ report.timeline.length }})</summary>
+                <ul class="transcript">
+                  @for (line of report.timeline; track $index) {
+                    <li>{{ channel[line.kind] || line.kind }}
+                      @if (line.start_ms !== null) { · {{ label(line.start_ms) }} }
+                      <q>{{ line.quote }}</q>
+                      @if (line.artifact) { <a [href]="evidence(report, line.artifact)" target="_blank" rel="noopener">Klatka</a> }
+                    </li>
+                  }
+                </ul>
+              </details>
+              @if (report.rules.length) {
+                <details>
+                  <summary>Kryteria UKNF ({{ report.rules.length }})</summary>
+                  <ul>@for (rule of report.rules; track rule.rule_id) { <li><strong>{{ rule.rule_id }} {{ rule.title }}</strong> · {{ rule.why }}</li> }</ul>
+                </details>
+              }
+              @if (report.limitations.length) {
+                <h4>Ograniczenia analizy</h4>
+                <ul>@for (reason of report.limitations; track reason) { <li>{{ reason }}</li> }</ul>
+              }
+              <a [href]="'/api/scan/reports/' + report.run + '/' + report.reel" target="_blank" rel="noopener">Raport JSON</a>
+            </div>
+          } @else { <p role="status">Wczytywanie raportu…</p> }
+        }
+      </article>
+    } @empty {
+      <p class="empty-reviews">{{ tab() === 'summary' ? 'Brak rolek do sprawdzenia.' : 'Brak rolek dla wybranej decyzji.' }}</p>
+    }
+    @if (reviews().total > pageSize) {
+      <div class="pagination">
+        <button type="button" (click)="page(-1)" [disabled]="offset() === 0">Poprzednia strona</button>
+        <span>{{ offset() + 1 }}–{{ offset() + reviews().items.length }} z {{ reviews().total }}</span>
+        <button type="button" (click)="page(1)" [disabled]="offset() + pageSize >= reviews().total">Następna strona</button>
+      </div>
+    }
+  }
+</section>
