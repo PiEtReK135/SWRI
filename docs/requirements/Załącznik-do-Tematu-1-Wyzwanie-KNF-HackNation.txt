@@ -1,0 +1,16 @@
+Zalacznik do Tematu 1 Wyzwanie KNF HackNation 2026
+Ilekroc mowa o:
+firmie inwestycyjnej - rozumie sie przez to dom maklerski, bank prowadzacy dzialalnosc maklerska, zagraniczna firme inwestycyjna prowadzaca dzialalnosc maklerska na terytorium Rzeczypospolitej Polskiej oraz zagraniczna osobe prawna z siedziba na terytorium panstwa innego niz panstwo czlonkowskie, prowadzaca na terytorium Rzeczypospolitej Polskiej dzialalnosc maklerska;
+zagranicznej firmie inwestycyjnej - rozumie sie przez to osobe prawna lub jednostke organizacyjna nieposiadajaca osobowosci prawnej z siedziba na terytorium innego panstwa czlonkowskiego, a w przypadku gdy przepisy danego panstwa nie wymagaja ustanowienia siedziby - z centrala na terytorium innego panstwa czlonkowskiego, albo osobe fizyczna z miejscem zamieszkania na terytorium innego panstwa czlonkowskiego, prowadzaca na podstawie zezwolenia wlasciwego organu nadzoru dzialalnosc maklerska na terytorium innego panstwa czlonkowskiego, jak równiez zagraniczna instytucje kredytowa;
+zagranicznej instytucji kredytowej - rozumie sie przez to instytucje kredytowa, o której mowa w art. 4 ust. 1 pkt 1 rozporzadzenia 575/2013, prowadzaca na podstawie zezwolenia wlasciwego organu nadzoru na terytorium innego panstwa czlonkowskiego dzialalnosc maklerska, lub prowadzaca na podstawie zezwolenia wlasciwego organu nadzoru na terytorium innego panstwa czlonkowskiego rachunki, na których rejestrowane sa papiery wartosciowe dopuszczone do obrotu na zagranicznym rynku regulowanym;
+Rejestr Firm Inwestycyjnych
+https://www.knf.gov.pl/podmioty/Podmioty_rynku_kapitalowego/Firmy_inwestycyjne_i_Agenci_firm_inwestycyjnych
+Banki prowadzace dzialalnosc maklerska:
+https://www.knf.gov.pl/podmioty/Podmioty_rynku_kapitalowego/Firmy_inwestycyjne_i_Agenci_firm_inwestycyjnych/Banki_prowadzace_dzialalnosc_maklerska
+Domy maklerskie
+https://www.knf.gov.pl/podmioty/Podmioty_rynku_kapitalowego/Firmy_inwestycyjne_i_Agenci_firm_inwestycyjnych/domy_maklerskie
+Oddzialy zagranicznych firm inwestycyjnych
+https://www.knf.gov.pl/podmioty/Podmioty_rynku_kapitalowego/Firmy_inwestycyjne_i_Agenci_firm_inwestycyjnych/notyfikowane_firmy_inwestycyjne_oddzialy
+Zagraniczne firmy inwestycyjne bez otwierania oddzialu
+https://www.knf.gov.pl/podmioty/Podmioty_rynku_kapitalowego/Firmy_inwestycyjne_i_Agenci_firm_inwestycyjnych/notyfikowane_zagraniczne_firmy_inwestycyjne
+

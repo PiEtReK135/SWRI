@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pl">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>InvestWatch</title>
+<style>
+:root{font:16px system-ui;color:#182835;background:#eef3f4}*{box-sizing:border-box}body{margin:0}header{background:#102936;color:white;padding:1.4rem max(1rem,calc((100vw - 1150px)/2));white-space:nowrap}main{max-width:1190px;margin:auto;padding:1.5rem;display:grid;grid-template-columns:330px 1fr;gap:1.25rem}section,details{background:white;border:1px solid #ccdadd;border-radius:10px;padding:1rem;margin-bottom:1rem}h1,h2{margin:.35rem 0 .8rem}label{display:block;margin:.7rem 0}input:not([type=checkbox]),select,textarea{width:100%;padding:.45rem;border:1px solid #9aafb4;border-radius:4px}button{cursor:pointer;background:#146447;color:#fff;padding:.5rem .8rem;border:0;border-radius:5px;margin:.15rem}a{color:#115b4c}li{margin:.5rem 0}video,img{max-width:100%;max-height:400px}pre{white-space:pre-wrap;overflow-wrap:anywhere}table{width:100%;text-align:left}td,th{padding:.4rem;border-bottom:1px solid #dde8e9}summary{cursor:pointer}@media(max-width:760px){main{display:block}table{font-size:.8rem}}
+</style>
+<header><strong>InvestWatch</strong> · Przegląd materiałów organicznych</header>
+<main>
+<aside>
+<section><h2>Import materiału</h2>
+<form id="upload">
+<label>Tytuł <input name="title"></label>
+<label>Twórca <input name="creator"></label>
+<label>URL źródła <input type="url" name="url"></label>
+<label>Opis <textarea name="description"></textarea></label>
+<label>Relacja wydawcy <select name="relation"><option value="UNKNOWN">Nieustalona</option><option value="THIRD_PARTY">Podmiot trzeci</option><option value="FIRST_PARTY">Pierwsza strona</option></select></label>
+<label>URL profilu wydawcy <input type="url" name="publisher_url"></label>
+<label>Film lub audio <input type="file" name="video" accept=".mp4,.mp3,.wav,.mov,.webm,.m4a"></label>
+<label>Napisy <input type="file" name="subtitle" accept=".srt,.vtt,.txt"></label>
+<label><input type="checkbox" name="captions_complete" value="true"> Napisy są kompletne</label>
+<label><input type="checkbox" name="rights_confirmed" value="true" required> Mam prawo analizować materiał</label>
+<button>Dodaj do kolejki</button>
+</form><p id="status" role="status"></p></section>
+<div id="tools"></div>
+</aside>
+<div>
+<section><h2>Materiały</h2><div id="filters"></div>
+<table><thead><tr><th>Materiał</th><th>Status</th><th>Moduły</th><th>Zakres danych</th><th>Priorytet</th></tr></thead><tbody id="items"></tbody></table>
+</section>
+<section id="review"><p>Wybierz materiał, aby przejrzeć dowody.</p></section>
+</div>
+</main>
+<script src="/dashboard/app.js" defer></script>
+</html>

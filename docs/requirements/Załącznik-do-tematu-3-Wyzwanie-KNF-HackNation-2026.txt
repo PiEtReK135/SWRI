@@ -1,0 +1,26 @@
+Zalacznik do tematu 3 Wyzwanie KNF HackNation 2026
+
+Zgodnie z art. 76 ustawy o obrocie instrumentami finansowymi 
+
+Doradztwo inwestycyjne polega na przygotowywaniu, z inicjatywy firmy inwestycyjnej albo na wniosek klienta, oraz przekazywaniu klientowi, okreslonej w art. 9 rozporzadzenia 2017/565, pisemnej, ustnej lub w innej formie, w szczególnosci elektronicznej, spelniajacej wymóg trwalego nosnika, przygotowanej w oparciu o potrzeby i sytuacje klienta rekomendacji, dotyczacej nabycia lub zbycia jednego instrumentu finansowego lub wiekszej ich liczby, albo dokonania innej czynnosci wywolujacej równowazne skutki, której przedmiotem sa instrumenty finansowe, albo rekomendacji dotyczacej powstrzymania sie od wykonania takiej czynnosci.
+Czyli doradztwo inwestycyjne to rekomendacje nabywania, zbywania albo trzymania instrumentów finansowych, w tym papierów wartosciowych.
+
+Zgodnie z art. 2 ustawy o obrocie instrumentami finansowymi:
+
+1.	 Instrumentami finansowymi w rozumieniu ustawy sa:
+1)	 papiery wartosciowe;
+2)	 niebedace papierami wartosciowymi:
+a)	 tytuly uczestnictwa w instytucjach wspólnego inwestowania,
+b)	 instrumenty rynku pienieznego,
+c)	opcje, kontrakty terminowe, swapy, umowy forward na stope procentowa, inne instrumenty pochodne, których instrumentem bazowym jest papier wartosciowy, waluta, stopa procentowa, wskaznik rentownosci, uprawnienie do emisji lub inny instrument pochodny, indeks finansowy lub wskaznik finansowy, które sa wykonywane przez dostawe lub rozliczenie pieniezne, z wylaczeniem instrumentów pochodnych, o których mowa w art. 10 rozporzadzenia 2017/565,
+d)	 opcje, kontrakty terminowe, swapy, umowy forward na stope procentowa oraz inne instrumenty pochodne, których instrumentem bazowym jest towar i które sa wykonywane przez rozliczenie pieniezne lub moga byc wykonane przez rozliczenie pieniezne wedlug wyboru jednej ze stron,
+e)	opcje, kontrakty terminowe, swapy oraz inne instrumenty pochodne, których instrumentem bazowym jest towar i które moga byc wykonane przez dostawe, pod warunkiem ze sa dopuszczone do obrotu w systemie obrotu instrumentami finansowymi, z wylaczeniem produktów energetycznych bedacych przedmiotem obrotu hurtowego na OTF, które musza byc wykonywane przez dostawe,
+f)	niedopuszczone do obrotu w systemie obrotu instrumentami finansowymi opcje, kontrakty terminowe, swapy, umowy forward oraz inne instrumenty pochodne, których instrumentem bazowym jest towar i które moga byc wykonane przez dostawe, a które nie sa przeznaczone do celów handlowych i wykazuja wlasciwosci innych pochodnych instrumentów finansowych,
+g)	 instrumenty pochodne dotyczace przenoszenia ryzyka kredytowego,
+h)	 kontrakty na róznice,
+i)	opcje, kontrakty terminowe, swapy, umowy forward dotyczace stóp procentowych oraz inne instrumenty pochodne odnoszace sie do zmian klimatycznych, stawek frachtowych oraz stawek inflacji lub innych oficjalnych danych statystycznych, które sa wykonywane przez rozliczenie pieniezne albo moga byc wykonane przez rozliczenie pieniezne wedlug wyboru jednej ze stron, a takze instrumenty pochodne, o których mowa w art. 8 rozporzadzenia 2017/565, i inne, które wykazuja wlasciwosci innych pochodnych instrumentów finansowych,
+j)	uprawnienia do emisji.
+Zgodnie z art. 3 ustawy o obrocie instrumentami finansowymi
+Ilekroc jest mowa o papierach wartosciowych - rozumie sie przez to:
+a)	akcje, prawa poboru w rozumieniu przepisów ustawy z dnia 15 wrzesnia 2000 r. - Kodeks spólek handlowych (Dz. U. z 2024 r. poz. 18 i 96), prawa do akcji, warranty subskrypcyjne, kwity depozytowe, obligacje, listy zastawne, certyfikaty inwestycyjne, bankowe prawa pochodne w rozumieniu przepisów ustawy z dnia 29 sierpnia 1997 r. - Prawo bankowe (Dz. U. z 2023 r. poz. 2488) i inne zbywalne papiery wartosciowe, w tym inkorporujace prawa majatkowe odpowiadajace prawom wynikajacym z akcji lub z zaciagniecia dlugu, wyemitowane na podstawie wlasciwych przepisów prawa polskiego lub obcego,
+b)	inne zbywalne prawa majatkowe, które powstaja w wyniku emisji, inkorporujace uprawnienie do nabycia lub objecia papierów wartosciowych okreslonych w lit. a, lub wykonywane poprzez dokonanie rozliczenia pienieznego, odnoszace sie do papierów wartosciowych okreslonych w lit. a, walut, stóp procentowych, stóp zwrotu, towarów oraz innych wskazników lub mierników (prawa pochodne);

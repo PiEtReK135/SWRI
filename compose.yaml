@@ -1,0 +1,18 @@
+services:
+  investwatch:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - investwatch-data:/data
+    environment:
+      IW_WHISPER_MODEL: ${IW_WHISPER_MODEL:-/data/models/whisper-base}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).close()"]
+      interval: 30s
+      timeout: 5s
+    mem_limit: 4g
+    cpus: 4
+    init: true
+volumes:
+  investwatch-data:
