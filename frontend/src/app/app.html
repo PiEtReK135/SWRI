@@ -1,16 +1,16 @@
 <a class="skip-link" href="#tresc">Przejdź do treści</a>
 
 <header class="site-header swri-header" id="start">
-  <div class="shell header-inner">
-    <a class="wordmark" href="#start" aria-label="SWRI — początek strony">
-      <span class="brand-mark" aria-hidden="true"></span>SWRI
+  <div class="swri-header-inner">
+    <a class="swri-wordmark" href="#start" aria-label="SWRI — początek strony">
+      <span class="swri-brand-mark" aria-hidden="true"></span>SWRI
     </a>
-    <nav aria-label="Sekcje strony">
+    <nav class="swri-header-nav" aria-label="Sekcje strony">
       @for (item of navigation; track item.id) {
         <a [href]="'#' + item.id">{{ item.label }}</a>
       }
     </nav>
-    <a class="login-link" href="/dashboard">Otwórz panel</a>
+    <swri-appearance></swri-appearance>
   </div>
 </header>
 
@@ -20,10 +20,10 @@
       <div class="hero-copy">
         <p class="eyebrow">HackNation 2026 / InvestWatch</p>
         <h1 id="hero-title">Reklamy inwestycyjne <em>pod lupą.</em></h1>
-        <p class="intro">SWRI to projekt, który pomoże odnajdywać reklamy inwestycyjne w internecie i oceniać, jak przedstawiają ryzyko. Zaczynamy od rolek i krótkich filmów w mediach społecznościowych.</p>
+        <p class="intro">SWRI (W rozwinięciu System Weryfikacji Ryzyka Inwestycyjnego) to projekt, który pomoże odnajdywać reklamy inwestycyjne w internecie i oceniać, jak przedstawiają ryzyko. Zaczynamy od rolek i krótkich filmów w mediach społecznościowych.</p>
         <div class="hero-links">
-          <a class="primary-link" href="/skanowanie?start=1" target="_blank" rel="noopener">Przejdź do skanowania internetu</a>
-          <a class="secondary-link" href="/rolki">Otwórz feed rolek</a>
+          <a class="swri-action" href="/skanowanie?start=1" target="_blank" rel="noopener">Przejdź do skanowania internetu</a>
+          <a class="swri-action swri-action-secondary" href="/rolki">Otwórz feed rolek</a>
         </div>
       </div>
 
@@ -108,7 +108,7 @@
   <section class="shell section-layout criteria" id="kryteria" tabindex="-1" aria-labelledby="kryteria-title">
     <div>
       <h2 id="kryteria-title">Kryteria</h2>
-      <p class="section-intro">Kryteria modułu 2 na podstawie dokumentu „Zasób dla uczestników — InvestWatch”.</p>
+      <p class="section-intro">Ryzyko w module 2 są oceniane na podstawie następujących kryterii.</p>
     </div>
     <div class="criteria-list">
       @for (area of reviewAreas; track area.name) {
@@ -132,14 +132,15 @@
 
   <section class="shell closing" id="kontakt" tabindex="-1" aria-labelledby="kontakt-title">
     <h2 id="kontakt-title">Kontakt</h2>
-    <p>W sprawach wyzwania InvestWatch mentorzy są dostępni przy stoisku UKNF i na kanale Discord <strong>#InvestWatch</strong>.</p>
+    <p>Piotr Idzikowski (Team Lead) <strong><a href="https://hacknation2026.hacktribe.co/profile/f19bde50-f772-441a-8de1-a93280996060/">Link Hacktribe</a></strong></p>
+    <p>Dawid Michałczyk <strong><a href="https://hacknation2026.hacktribe.co/profile/43e1c3ff-aea3-4e4b-83cc-db584027f3a2/">Link Hacktribe</a></strong></p>
   </section>
 </main>
 
 <footer class="site-footer">
   <div class="shell footer-inner">
-    <a class="wordmark" href="#start" aria-label="SWRI — wróć na początek strony">
-      <span class="brand-mark" aria-hidden="true"></span>SWRI
+    <a class="swri-wordmark" href="#start" aria-label="SWRI — wróć na początek strony">
+      <span class="swri-brand-mark" aria-hidden="true"></span>SWRI
     </a>
     <p>Projekt konkursowy · HackNation 2026<br>
       <a href="/admin/login">Logowanie demonstracyjne</a></p>

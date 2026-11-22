@@ -1,13 +1,14 @@
 <div class="reel-page">
   <header class="swri-header">
-    <div class="feed-header">
-      <a class="feed-brand" href="/" aria-label="SWRI, strona główna">
-        <span class="brand-mark" aria-hidden="true"></span>SWRI
+    <div class="swri-header-inner">
+      <a class="swri-wordmark" href="/" aria-label="SWRI, strona główna">
+        <span class="swri-brand-mark" aria-hidden="true"></span>SWRI
       </a>
-      <nav aria-label="Nawigacja rolek">
+      <nav class="swri-header-nav" aria-label="Nawigacja rolek">
         <a href="/skanowanie">Skaner</a>
-        <button class="publish header-publish" type="button" (click)="openPublisher()">Dodaj rolkę</button>
+        <button class="swri-action" type="button" (click)="openPublisher()">Dodaj rolkę</button>
       </nav>
+      <swri-appearance></swri-appearance>
     </div>
   </header>
 

@@ -1,10 +1,11 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { CUSTOM_ELEMENTS_SCHEMA, ChangeDetectionStrategy, Component } from '@angular/core';
 import { projectModules } from './project-modules';
 import { reviewAreas } from './review-criteria';
 import { ReelReports } from './reels/reports';
 
 @Component({
   selector: 'app-root',
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './app.html',
   styleUrl: './app.css',
   imports: [ReelReports],

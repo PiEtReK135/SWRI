@@ -1,8 +1,9 @@
-import { ChangeDetectionStrategy, Component, ElementRef, signal, viewChild } from '@angular/core';
+import { CUSTOM_ELEMENTS_SCHEMA, ChangeDetectionStrategy, Component, ElementRef, signal, viewChild } from '@angular/core';
 import { Engagement, Reel, jsonPost, mediaUrl, request, topics } from './reel-api';
 
 @Component({
   selector: 'app-root',
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './feed.html',
   styleUrl: './feed.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
