@@ -75,4 +75,4 @@ Z katalogu głównego repozytorium zbuduj publiczny wariant interfejsu.
 npm.cmd --prefix frontend run build -- --configuration published --base-href /swri-preview/ --output-path ../data/validation/pages-build
 ```
 
-Przenieś pliki kompilacji i `docs/online/snapshot.json` do katalogu głównego repozytorium `PiEtReK135/swri-preview`, z którego GitHub Pages serwuje podgląd. Zachowaj plik `.nojekyll` i przekierowanie pod `monitoring/`. [Podgląd na GitHub Pages](https://pietrek135.github.io/swri-preview/)
+Przenieś pliki kompilacji i `docs/online/snapshot.json` do katalogu głównego repozytorium `PiEtReK135/swri-preview`, z którego GitHub Pages serwuje podgląd. Zachowaj plik `.nojekyll` i przekierowanie pod `monitoring/`. Poprzednią migawkę `docs/online/archive/monitoring-snapshot.json` publikuj jako `monitoring/snapshot.json`, a raport `docs/online/archive/session-2026-11-21.html` jako `archive/session-2026-11-21.html`. [Podgląd na GitHub Pages](https://pietrek135.github.io/swri-preview/)

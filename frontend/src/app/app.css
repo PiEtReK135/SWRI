@@ -97,6 +97,21 @@ h1 em { display: block; width: fit-content; color: var(--blue-dark); font-style:
 
 .archive-notice { margin-top: .85rem; color: var(--muted); }
 
+.archived-report {
+  padding: clamp(1rem, 3vw, 1.55rem);
+  border: 1px solid var(--line);
+  border-radius: .75rem;
+  background: var(--surface);
+  scroll-margin-top: 1rem;
+}
+
+.archived-report h3 { margin-block: .3rem; }
+.archived-report p:not(.eyebrow) { margin-block: .3rem; color: var(--muted); }
+.archived-report details { margin-block: .75rem; }
+.archived-report summary { cursor: pointer; font-weight: 650; }
+.archive-downloads { display: flex; flex-wrap: wrap; gap: .35rem 1rem; }
+.archive-downloads a { color: var(--blue-dark); text-underline-offset: .18em; }
+
 .hero-diagram {
   padding: clamp(1.1rem, 3vw, 2.2rem);
   border: 1px solid #2347a0;

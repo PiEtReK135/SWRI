@@ -63,6 +63,27 @@
       </div>
       @if (!published) {
         <reel-reports />
+      } @else {
+        <section class="archived-report" id="archiwum" aria-labelledby="archive-title">
+          <p class="eyebrow">Archiwum · analiza lokalna</p>
+          <h3 id="archive-title">W pełni legalna porada inwestycyjna</h3>
+          <p>Finanse i inwestycje · Do sprawdzenia · Priorytet średni</p>
+          <p>Sesja <time datetime="2026-11-21T23:48:26+01:00">21.11.2026, 23:48:26</time> · Analiza <time datetime="2026-11-21T23:49:45+01:00">21.11.2026, 23:49:45</time> · czas polski</p>
+          <details>
+            <summary>Uzasadnienie decyzji</summary>
+            <ul>
+              <li>Publiczna zachęta do transakcji. Sprawdź kontekst i charakter produktu.</li>
+              <li>Ryzyko obok korzyści. W pobliżu twierdzenia o korzyści nie odczytano ostrzeżenia.</li>
+              <li>Oficjalna nazwa firmy. Zweryfikuj pełną nazwę firmy i jej status.</li>
+              <li>Oznaczenie reklamy. Oznaczenia nie znaleziono w dostępnej próbce.</li>
+              <li>Wykryto zachętę promocyjną w kontekście finansowym.</li>
+            </ul>
+          </details>
+          <div class="archive-downloads">
+            <a href="archive/session-2026-11-21.html" download>Pobierz oryginalny raport HTML</a>
+            <a href="monitoring/snapshot.json" download>Pobierz poprzednią migawkę JSON</a>
+          </div>
+        </section>
       }
     </div>
   </div>

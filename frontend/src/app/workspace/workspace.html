@@ -34,6 +34,7 @@
       <p>Nowe analizy wymagają lokalnego uruchomienia SWRI i konfiguracji źródeł oraz modeli.</p>
       @if (snapshotTime()) { <p>Stan danych z <time [attr.datetime]="snapshotTime()">{{ timestamp(snapshotTime()) }}</time> · czas polski</p> }
       @if (mode() === 'SIMULATION') { <p>Autorskie scenariusze SWRI. Opisane oferty i postacie są fikcyjne.</p> }
+      <p><a href="./#archiwum">Archiwum analizy rolek i poprzednie pliki</a></p>
     </aside>
   } @else if (mode() === 'REAL') {
     <details class="panel sources">
