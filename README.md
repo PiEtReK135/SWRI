@@ -1,85 +1,37 @@
-# InvestWatch
+# SWRI / InvestWatch
 
-Lokalny prototyp do przeglądu organicznych filmów i identyfikacji potencjalnej promocji finansowej. Dowody i decyzje operatora są zapisywane w SQLite WAL. Raport zawiera cytaty, klatki, znaczniki czasu oraz zakres przebadanych danych.
+## Quick Start
 
-## Szybki start na Windows 11
-
-Wymagany jest Node.js 24 LTS z npm. Z katalogu repozytorium wykonaj w PowerShell poniższe polecenia. Instalator używa WinGet do przygotowania Python 3.12, FFmpeg i Tesseract oraz zapisuje pakiety OCR pol/eng i model ASR w `data`.
+Na Windowsie 11 zainstaluj Node.js 24 z npm. Poniższe polecenia wykonaj w PowerShell z katalogu repozytorium.
 
 ```powershell
 .\setup.ps1
 npm.cmd --prefix frontend ci
 npm.cmd --prefix frontend run build
+.\scripts\prepare_reel_llm.ps1
 .\start.ps1 -SiteDir .\frontend\dist
 ```
 
-Otwórz `http://127.0.0.1:8000` i wybierz **Otwórz panel**. W sekcji **Discovery** wybierz **Wczytaj filmy demo**. W wierszu **Jesienna wędrówka** wybierz cytat przy 00:18, obejrzyj oś czasu i wyeksportuj raport. Pozostałe przykłady pokazują materiał oficjalny (M2), ofertę doradztwa (M3) i promocję widoczną tylko w OCR.
+Otwórz [lokalną stronę SWRI](http://127.0.0.1:8000/). Wybierz **Otwórz feed rolek**, dodaj materiał i wybierz **Przeanalizuj tę rolkę**. Zapisane wyniki znajdziesz w [panelu analitycznym](http://127.0.0.1:8000/analiza).
 
-Własny materiał można przesłać jako plik wideo lub audio i opcjonalne napisy SRT/VTT/TXT. Limit klipu to 300 s i 150 MB. Napisy z pozycjami czasowymi są źródłem cytatów. Przy niepełnych napisach i dostępnym audio pracownik próbuje użyć lokalnego ASR.
+Przy kolejnym uruchomieniu wystarczy ostatnie polecenie. Po pobraniu zależności i modeli lokalny feed oraz skaner działają offline.
 
-Jeśli pobieranie modelu jest niedostępne, użyj `setup.ps1 -SkipModels`. Napisy i OCR działają lokalnie po zakończeniu instalacji. Aby przygotować dodatkowo Ollama i Qwen, uruchom `setup.ps1 -WithOllama`, następnie `.\start.ps1 -WithOllama -SiteDir .\frontend\dist`.
+## Wymagania
 
-Jeśli npm zgłasza `UNABLE_TO_VERIFY_LEAF_SIGNATURE`, ustaw w tym oknie PowerShell `$env:NODE_OPTIONS = "--use-system-ca"` i ponów `npm.cmd --prefix frontend ci`.
+- **Sprzęt** — sprawdzona konfiguracja to Intel Core i7-1360P i 16 GB RAM. Analiza działa na CPU.
+- **Dysk** — zalecane 8 GB wolnego miejsca na instalację i modele oraz dodatkowe miejsce na materiały.
+- **Oprogramowanie** — Windows 11, PowerShell i Node.js 24 z npm. Skrypt `setup.ps1` używa WinGet, by doinstalować brakujące składniki (Python 3.12, FFmpeg z ffprobe i Tesseract). Przygotowuje też OCR po polsku i angielsku.
 
-### Strona projektu pod wspólnym adresem
+## Konfiguracja usług
 
-Po restarcie uruchom z katalogu repozytorium `.\start.ps1 -SiteDir .\frontend\dist`. Po zmianie źródeł Angulara ponownie wykonaj `npm.cmd --prefix frontend run build`.
+| Usługa | Ustawienie |
+| --- | --- |
+| Analiza lokalna | Instalator pobiera Whisper medium. Skrypt `prepare_reel_llm.ps1` przygotowuje Qwen3.5-2B i llama.cpp. Ścieżkę do własnego modelu Whisper można ustawić w `IW_WHISPER_MODEL`. |
+| Katalog danych | Domyślnie `data/`. Własną ścieżkę ustaw w `IW_DATA` przed instalacją modeli i startem. |
+| Kolektor WWW | Dodaj witryny w `data/discovery/sources.json`. Inną ścieżkę do konfiguracji można podać w `IW_DISCOVERY_CONFIG`. |
+| Meta Ad Library | Ustaw `IW_META_AD_LIBRARY_TOKEN` z zatwierdzonym dostępem do Ad Library API. Źródło obsługuje kampanie Meta z metadanymi Facebooka i Instagrama. |
+| TikTok Commercial Content API | Ustaw `IW_TIKTOK_COMMERCIAL_TOKEN` z zatwierdzonym zakresem `research.adlib.basic`. |
 
-Panel `/analiza` otwiera domyślnie symulację z modułami M1, M2 i M3. Przycisk **Dane rzeczywiste** przełącza na zebrane kampanie i publiczne oferty. Konfiguracja kolektorów, kartoteki, kalibracji i bazy jest opisana w [Monitoringu rynku](docs/discovery.md).
+Zmienne ustaw w tym samym oknie PowerShell przed startem, np. `$env:IW_DISCOVERY_CONFIG = 'C:\SWRI\sources.json'`. Tokeny przechowuj poza repozytorium.
 
-[Podgląd na GitHub Pages](https://pietrek135.github.io/swri-preview/) używa tego samego interfejsu co wersja lokalna i pokazuje zapisane raporty, daty pozyskania oraz autorskie scenariusze. Nowe analizy wymagają lokalnego uruchomienia SWRI i konfiguracji źródeł oraz modeli. Dane publikacji są dostępne w [migawce JSON](docs/online/snapshot.json).
-
-Pod jednym adresem lokalnym działają strona SWRI pod `/`, panel InvestWatch pod `/dashboard` i API, m.in. `/health`, `/content` i `/reports/{id}`. Trasa `/admin/login` pokazuje demonstracyjny formularz. Panel i API są dostępne bez uwierzytelniania, a serwer nasłuchuje na `127.0.0.1`.
-
-Parametr `-SiteDir` przyjmuje katalog gotowej kompilacji z plikiem `index.html`. Polecenie `.\start.ps1` bez tego parametru otwiera sam panel pod `/`.
-
-### Rolki i lokalny skaner
-
-Na stronie głównej wybierz **Otwórz feed rolek**, a następnie **Dodaj rolkę**, aby opublikować własny film lub zdjęcie. Przycisk **Przejdź do skanowania internetu** otwiera osobną kartę i automatycznie rozpoczyna skan feedu SWRI. Wyniki aktualizują się na stronie głównej w sekcji **Raporty**. Wszystkie decyzje są w zakładce **Informacje szczegółowe**.
-
-Opcjonalnie zaimportuj publicznie dostępne materiały startowe, gdy aplikacja już działa:
-
-```powershell
-node.exe scripts/import_reel_samples.mjs
-```
-
-Import pobiera i skraca polskojęzyczne filmy ZPE z licencją Creative Commons. Temat feedu jest przypisywany automatycznie. Skaner łączy mowę, tekst z ekranu i opis, a zakwalifikowane materiały przechodzą 19 kontroli z katalogu UKNF. Licznik pokazuje etap i postęp bieżącej rolki. Raport szereguje materiały według liczby kryteriów wymagających uwagi.
-
-Na Windows polecenie `.\scripts\prepare_reel_llm.ps1` instaluje Qwen3.5-2B Q4_K_M i środowisko CPU llama.cpp do katalogu danych. Uruchom aplikację dotychczasową komendą. Skaner używa modelu do kwalifikacji rolek i ponownie do oceny UKNF zakwalifikowanych materiałów.
-
-Na ekranie skanera **Historia analiz lokalnych** pozwala wyświetlić sesję po dacie i pobrać samodzielny HTML. **Resetuj skaner** otwiera nowy profil i zeruje aktywną historię i strategię. [Architektura, algorytmy, źródła i publikacja podglądu](docs/reels.md).
-
-### Opcjonalne lokalne modele
-
-```powershell
-.\.venv\Scripts\python.exe scripts/prepare_assets.py --models --whisper medium
-.\start.ps1 -WithASR -SiteDir .\frontend\dist
-```
-
-Domyślnie start używa dostępnego modelu w kolejności medium, small, base. Model medium zajmuje ok. 1,53 GB na dysku. Ścieżkę do pobranego modelu CTranslate2 można też ustawić w `IW_WHISPER_MODEL`. Inferencja używa CPU INT8, czterech wątków i trybu offline. Jeżeli uruchomiono Ollama na porcie 11434 i model jest dostępny lokalnie, ustaw `$env:IW_OLLAMA_MODEL = "qwen3:1.7b"` przed startem. Model może wskazać cytaty do ponownej weryfikacji.
-
-### Compose
-
-```sh
-docker compose up --build
-```
-
-Panel jest dostępny pod tym samym adresem. Dane są w wolumenie `investwatch-data`. Aby użyć ASR w kontenerze, umieść model w `/data/models/whisper-base` w wolumenie. Aplikację uruchamiaj z jednym procesem Uvicorn i utrzymuj port dostępny lokalnie. Panel nie ma uwierzytelniania.
-
-### Testy
-
-```sh
-python -m pip install -r requirements.txt -r requirements-dev.txt
-python -m unittest discover -v
-python -m pip_audit
-npm --prefix frontend ci
-npm --prefix frontend run build
-```
-
-Testy integracyjne wymagają FFmpeg, Tesseract i czcionki obsługiwanej przez FFmpeg. Zależności Angulara są zapisane w `frontend/package-lock.json`. [Wyniki testów](docs/validation.md) · [Śledzenie wymagań](docs/requirements_traceability.md) · [Prezentacja](docs/InvestWatch-demo.pdf)
-
-## Źródła i interpretacja
-
-Discovery obejmuje ręczną kolejkę URL, import CSV/JSON, plan zapytań z szerokimi tematami i listy obserwacyjne. Polski rejestr jest kartoteką uzupełnianą przez operatora z podaniem źródła i daty, przez `POST /entities`. Dokumentacja kontraktów API jest dostępna pod `/docs`. Po imporcie samego URL system prosi o uzupełnienie dowodów. Ponowienie lokalne analizuje zapisane materiały, a okresowy recheck przypomina o ręcznej weryfikacji URL i rejestru. Integracje TikTok i Instagram mają stan `NOT_APPROVED`.
-
-Reguły M2 dotyczą udokumentowanych pierwszostronnych publikacji firm objętych zakresem. W M1 reguły ryzyka są sygnałami pomocniczymi. W M3 wykryte przesłanki indywidualnej rekomendacji wymagają oceny operatora. Priorytet 0–100 służy do kalibracji alertów, a wynik lokalnego dopasowania firmy nie rozstrzyga o zezwoleniu.
+[Przykład konfiguracji kolektorów](docs/discovery.md#pozyskiwanie) · [Konfiguracja skanera i modeli](docs/reels.md)
