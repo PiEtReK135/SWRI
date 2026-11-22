@@ -2,7 +2,7 @@
   <div class="review-heading">
     <div>
       <h2 id="reel-results">Przegląd analityczny</h2>
-      <p>Priorytet wskazuje kolejność ręcznej weryfikacji.</p>
+      <p>Priorytet według liczby kryteriów UKNF wymagających uwagi. Procent odnosi się do całego katalogu.</p>
     </div>
     @if (status(); as state) {
       <div class="latest-count"><strong>{{ state.scanned }}</strong><span>zeskanowano w ostatniej sesji</span></div>
@@ -21,7 +21,7 @@
     @for (entry of ratings(); track entry.role + entry.name) {
       <article class="rating-row">
         <div><h3>{{ entry.name }}</h3><p>{{ entry.role }} · {{ entry.count }} do sprawdzenia</p></div>
-        <div><strong>{{ entry.priority }}/100</strong><p>Wysoki {{ entry.levels['HIGH'] || 0 }} · Średni {{ entry.levels['MEDIUM'] || 0 }} · Niski {{ entry.levels['LOW'] || 0 }}</p></div>
+        <div><strong>{{ entry.priority }}/{{ entry.criteria_count }}</strong><p>Średnia liczba kryteriów do weryfikacji</p></div>
       </article>
     } @empty { <p class="empty-reviews">Rating pojawi się po wykryciu pierwszego materiału do sprawdzenia.</p> }
   } @else {
@@ -29,11 +29,12 @@
       <label class="filter">Decyzja
         <select [value]="filter()" (change)="show('details', $any($event.target).value)">
           <option value="">Wszystkie rolki</option>
+          <option value="REJECTED">Odrzucone</option>
           @for (key of keys(decisions); track key) { <option [value]="key">{{ decisions[key] }}</option> }
         </select>
       </label>
     } @else if (reviews().total || riskFilter()) {
-      <label class="filter">Priorytet
+      <label class="filter">Waga najmocniejszego sygnału
         <select [value]="riskFilter()" (change)="chooseRisk($event)">
           <option value="">Wszystkie poziomy</option>
           @for (key of keys(risks); track key) { <option [value]="key">{{ risks[key] }}</option> }
@@ -44,19 +45,27 @@
       <article class="review-row">
         <div class="result-header">
           <div>
-            <p class="result-byline">&#64;{{ item.creator }} · {{ item.category }} @if (item.modules.length) { · {{ item.modules.join(' / ') }} }</p>
+            <p class="result-byline">&#64;{{ item.creator }} · {{ contentTypes[item.content_type || ''] || item.category }} @if (item.modules.length) { · {{ item.modules.join(' / ') }} }</p>
             <h3>{{ item.title }}</h3>
           </div>
-          <div class="verdict" [attr.data-risk]="item.risk">{{ item.risk ? risks[item.risk] + ' priorytet' : decisions[item.decision] }}</div>
+          <div class="verdict" [attr.data-risk]="item.risk">
+            @if (item.priority_count != null && item.criteria_count && item.uknf_status === 'EVALUATED') {
+              {{ item.priority_count }}/{{ item.criteria_count }} kryteriów ({{ item.priority_percent }}%)
+            } @else { {{ decisions[item.decision] }} }
+          </div>
         </div>
         @if (item.reasons[0]; as reason) {
-          <p>{{ reason.text }}</p>
-          @if (reason.evidence[0]; as proof) { <blockquote>„{{ proof.quote }}”</blockquote> }
+          <p>@if (reason.rule_id) { <strong>{{ reason.rule_id }}</strong> · }{{ reason.text }}</p>
+          @if (item.decision === 'REVIEW') {
+            @if (reason.evidence[0]; as proof) { <blockquote>„{{ proof.quote }}”</blockquote> }
+          }
         }
         @if (tab() === 'summary' && item.reasons.length > 1) {
           <details class="more">
             <summary>Pozostałe powody ({{ item.reasons.length - 1 }})</summary>
-            <ul>@for (reason of item.reasons.slice(1); track $index) { <li>{{ reason.text }}</li> }</ul>
+            <ul>@for (reason of item.reasons.slice(1); track $index) {
+              <li>@if (reason.rule_id) { <strong>{{ reason.rule_id }}</strong> · }{{ reason.text }}</li>
+            }</ul>
           </details>
         }
         <div class="row-links">
@@ -73,6 +82,23 @@
               <p>Analiza lokalna · {{ date(report.saved) }} @if (report.market_language) {
                 · Język {{ report.market_language === 'unknown' ? 'nieustalony' : report.market_language }}
               }</p>
+              @if (report.uknf_status === 'NOT_QUALIFIED' || (!report.uknf_status && !report.rules.length)) {
+                <p><strong>Poza strefą testów UKNF</strong></p>
+              } @else if (report.uknf_status === 'UNASSESSED') {
+                <p><strong>Kwalifikacja do UKNF wymaga ponownej analizy</strong></p>
+              }
+              @if (report.inference; as model) {
+                <p>Kwalifikacja · {{ inferenceLabels[model.qualification] || model.qualification }}
+                  @if (model.uknf !== 'SKIPPED') { · Ocena UKNF · {{ inferenceLabels[model.uknf] || model.uknf }} }
+                </p>
+                @if (model.timeline_rows != null) {
+                  <p>Fragmenty w materiale: {{ model.timeline_rows }} · Części kontekstu: {{ model.context_pages }}</p>
+                }
+                @if (model.semantic_checks != null) {
+                  <p>Sprawdzone reguły: {{ report.rules.length }}/{{ report.criteria_count }} ·
+                    Pełne odpowiedzi modelu: {{ model.semantic_checks }}/{{ report.criteria_count }}</p>
+                }
+              }
               @if (report.companies.length) { <p>Wzmianki o firmach: {{ report.companies.join(', ') }}</p> }
               @if (report.unverified_companies?.length) { <p>Nazwy do zweryfikowania: {{ report.unverified_companies?.join(', ') }}</p> }
               <p>{{ report.feedback }}</p>
@@ -84,7 +110,7 @@
               <h4>Podstawa decyzji</h4>
               <ol>
                 @for (reason of report.reasons; track $index) {
-                  <li>{{ reason.text }}
+                  <li>@if (reason.rule_id) { <strong>{{ reason.rule_id }}</strong> · }{{ reason.text }}
                     @if (reason.evidence.length) {
                       <ul class="proof">
                         @for (proof of reason.evidence; track $index) {
@@ -117,7 +143,42 @@
               @if (report.rules.length) {
                 <details>
                   <summary>Kryteria UKNF ({{ report.rules.length }})</summary>
-                  <ul>@for (rule of report.rules; track rule.rule_id) { <li><strong>{{ rule.rule_id }} {{ rule.title }}</strong> · {{ rule.why }}</li> }</ul>
+                  <ul>@for (rule of report.rules; track rule.rule_id) {
+                    <li><strong>{{ rule.rule_id }} {{ rule.title }}</strong>
+                      · {{ ruleStatuses[rule.status] || rule.status }}
+                      @if (rule.method) { · {{ rule.method }} }
+                      <div>{{ rule.why }} <small>({{ rule.legal_basis }})</small></div>
+                      @if (rule.semantic_status === 'INCOMPLETE') { <small>Niepełna odpowiedź modelu.</small> }
+                      @if (rule.semantic_status === 'RULE_ONLY') { <small>Sygnał z reguł. Model nie wskazał zgodnego dowodu.</small> }
+                      @if (rule.evidence?.length) {
+                        <ul class="proof">
+                          @for (proof of rule.evidence; track $index) {
+                            <li>{{ channel[proof.kind] || proof.kind }}
+                              @if (proof.start_ms !== null) { · {{ label(proof.start_ms) }} }
+                              <q>{{ proof.quote }}</q>
+                              @if (proof.luminance_span != null) { · Różnica jasności {{ proof.luminance_span }}/255 }
+                              @if (proof.responsive_css_px; as measurements) {
+                                @for (device of keys(measurements); track device) { · {{ device }} {{ measurements[device] }} px }
+                              }
+                              @if (proof.artifact) { <a [href]="evidence(report, proof.artifact)" target="_blank" rel="noopener">Klatka</a> }
+                            </li>
+                          }
+                        </ul>
+                      }
+                      @if (rule.counter_evidence?.length) {
+                        <ul class="proof">
+                          @for (proof of rule.counter_evidence; track $index) {
+                            <li>{{ channel[proof.kind] || proof.kind }}
+                              @if (proof.start_ms !== null) { · {{ label(proof.start_ms) }} }
+                              <q>{{ proof.quote }}</q>
+                              @if (proof.relative_text_height != null) { · Względna wysokość wiersza {{ proof.relative_text_height }}× }
+                              @if (proof.artifact) { <a [href]="evidence(report, proof.artifact)" target="_blank" rel="noopener">Klatka</a> }
+                            </li>
+                          }
+                        </ul>
+                      }
+                    </li>
+                  }</ul>
                 </details>
               }
               @if (report.limitations.length) {

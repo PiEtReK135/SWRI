@@ -22,6 +22,26 @@ class RuleTest(TestCase):
         self.assertEqual(results["R04"]["counter_evidence"][0]["relative_text_height"], .4)
         self.assertEqual(results["R07"]["status"], "UNASSESSED")
 
+    def test_visual_and_reference_controls_use_data_from_different_channels(self):
+        rows = [
+            segment("DESCRIPTION", "Wyniki historyczne. Źródło: dane GPW, okres 2020–2024."),
+            segment("ASR", "Wyniki historyczne brutto w USD to 95 procent.", 2000, 3000, language="pl"),
+            segment("ASR", "Przeczytaj o ryzyku w sekcji Legal. Kliknij link w opisie, aby poznać ryzyko.",
+                    4000, 5000, language="pl"),
+            segment("OCR", "Wyniki historyczne: 95%", 6500, bbox=[50, 100, 620, 60],
+                    frame_sha256="frame", frame_size=[960, 1700]),
+            segment("OCR", "Możesz stracić kapitał po margin call.", 6500, bbox=[30, 1500, 500, 20],
+                    frame_sha256="frame", frame_size=[960, 1700], luminance_span=25),
+        ]
+        results = {row["rule_id"]: row for row in evaluate({"url": ""}, rows, {
+            "modules": ["M1"], "financial_entities": [], "screening": True})}
+        self.assertEqual(len(results), 19)
+        for key in ("R05", "R08", "R09", "R12A", "R13"):
+            self.assertEqual(results[key]["status"], "NEEDS_REVIEW", key)
+        for key in ("R06", "R07", "R12B", "R14"):
+            self.assertEqual(results[key]["status"], "POTENTIAL_ISSUE", key)
+        self.assertLess(results["R08"]["evidence"][0]["responsive_css_px"]["telefon"], 12)
+        self.assertEqual(results["R10"]["status"], "PASS")
     def test_local_verifier_rejects_out_of_range_indices(self):
         with patch.dict("os.environ", {"IW_OLLAMA_MODEL": "qwen3:1.7b"}), patch(
                 "investwatch.verifier.http.client.HTTPConnection") as client:

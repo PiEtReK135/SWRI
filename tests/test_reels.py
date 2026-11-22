@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from socket import socket
 from tempfile import TemporaryDirectory
@@ -12,9 +13,11 @@ import uvicorn
 
 from investwatch.api import create_app
 from investwatch.media import command, credible_ocr_line, drawtext_font, ocr_batch, probe, segment
+from investwatch.reel_llm import Check, EvidenceContext, MODEL, Qualification, ReelModel
 from investwatch.reel_review import classify
 from investwatch.reel_scan import FeedClient, STRATEGIES, Strategy
 from investwatch.reels import TOPICS
+from investwatch.rules import DEFINITIONS
 
 
 PROFILE = "http://127.0.0.1:8000/rolki?autor=example"
@@ -22,9 +25,9 @@ COVERAGE = {"DESCRIPTION": "CHECKED", "ASR": "CHECKED", "OCR": "CHECKED"}
 COMPANY = {"name": "Platforma Alfa", "aliases": [], "in_scope": True, "publisher_url": PROFILE}
 
 
-def result(*rows, registry=(), profile="", coverage=None):
+def result(*rows, registry=(), profile="", coverage=None, model=None):
     return classify({"creator": "example"}, rows, coverage or COVERAGE, [],
-                    registry, profile, "http://127.0.0.1:8000/rolki?post=fixture")
+                    registry, profile, "http://127.0.0.1:8000/rolki?post=fixture", model=model)
 
 
 class ClassificationTest(TestCase):
@@ -75,7 +78,8 @@ class ClassificationTest(TestCase):
         self.assertEqual(report["companies"], [COMPANY["name"]])
         self.assertEqual(report["role"], "Firma")
         self.assertEqual(len(report["rules"]), 19)
-        self.assertEqual(report["risk"], "LOW")
+        self.assertEqual(report["decision"], "SCREENED_CLEAR")
+        self.assertEqual(report["priority_count"], 0)
 
     def test_neutral_and_rejected_and_incomplete(self):
         fixtures = (
@@ -94,9 +98,161 @@ class ClassificationTest(TestCase):
     def test_advice_and_own_promotion_are_distinct(self):
         report = result(segment("ASR", "Na podstawie Twojej sytuacji kup akcje spółki Alfa.", 1000))
         self.assertEqual(report["modules"], ["M3"])
-        self.assertEqual(report["risk"], "HIGH")
+        self.assertEqual(report["content_type"], "RECOMMENDATION")
+        self.assertEqual(report["uknf_status"], "EVALUATED")
+        self.assertEqual(report["priority_count"], 0)
         report = result(segment("DESCRIPTION", "Mój kurs inwestowania. Kup dostęp na mojej stronie."))
         self.assertEqual(report["role"], "Autopromocja")
+
+    def test_context_qualifies_own_forecast_and_uses_late_screen_warning(self):
+        speech = (
+            segment("ASR", "Przyjrzyjmy się akcjom tej spółki.", 0, 5000, language="pl"),
+            segment("ASR", "Dzisiaj zaczynam od przedstawienia danych wejściowych.", 8000, 14000),
+            segment("ASR", "Moim zdaniem w przyszłym roku wzrośnie o dwadzieścia procent.", 24000, 27500),
+        )
+        missing = result(*speech)
+        self.assertEqual(missing["content_type"], "FORECAST")
+        self.assertEqual(missing["uknf_status"], "EVALUATED")
+        self.assertEqual(missing["reasons"][0]["rule_id"], "R15")
+        self.assertEqual((missing["priority_count"], missing["criteria_count"], missing["priority_percent"]), (1, 19, 5))
+
+        complete = result(*speech,
+            segment("OCR", "Prognoza nie stanowi pewnego wskaźnika", 29000),
+            segment("OCR", "przyszłych wyników.", 30000))
+        forecast = next(rule for rule in complete["rules"] if rule["rule_id"] == "R15")
+        self.assertEqual(forecast["status"], "NEEDS_REVIEW")
+        self.assertEqual(forecast["counter_evidence"][0]["kind"], "OCR")
+        self.assertLess(forecast["points"], missing["rules"][0]["points"])
+
+    def test_financial_news_and_hypothetical_prediction_do_not_enter_rules(self):
+        for quote in ("Według analityków akcje spółki wzrosną o 12 procent.",
+                      "To fikcyjny przykład: cena akcji spadnie o 10 procent.",
+                      "Dziś cena akcji spadła o cztery procent."):
+            with self.subTest(quote=quote):
+                report = result(segment("ASR", quote, 1000, language="pl"))
+                self.assertEqual((report["decision"], report["uknf_status"]), ("FINANCE_NEUTRAL", "NOT_QUALIFIED"))
+                self.assertEqual(report["criteria_count"], 19)
+                self.assertEqual(len(report["reasons"]), 1)
+                self.assertFalse(report["rules"])
+
+    def test_scores_sort_criteria_and_split_warning_applies_only_near_claim(self):
+        report = result(
+            segment("DESCRIPTION", "Użyj kodu polecającego tego brokera."),
+            segment("ASR", "Gwarantowany zysk, bo produkt został zatwierdzony przez", 1000, 3000, language="pl"),
+            segment("ASR", "KNF.", 3100, 4000),
+            segment("OCR", "Możesz stracić kapitał.", 15000),
+        )
+        points = [rule["points"] for rule in report["rules"]]
+        self.assertEqual(points, sorted(points, reverse=True))
+        self.assertEqual([reason["rule_id"] for reason in report["reasons"][:2]], ["R03", "R17"])
+        self.assertEqual(report["risk"], "HIGH")
+        self.assertLessEqual(report["priority_count"], report["criteria_count"])
+
+    def test_semantic_gate_and_criterion_use_indexed_evidence(self):
+        context = EvidenceContext.from_timeline([
+            segment("DESCRIPTION", "Wynik tego portfela może być gorszy.", None),
+            segment("ASR", "Moim zdaniem ta spółka za rok będzie dwa razy droższa.", 2000, language="pl"),
+            segment("OCR", "Prognoza nie daje pewności przyszłych wyników.", 20000),
+            segment("OCR", "Prognoza nie daje pewności przyszłych wyników.", 21000),
+        ])
+        self.assertEqual(len(context.rows), 4)
+        with self.assertRaises(ValueError):
+            context.resolve([999])
+        with patch("investwatch.reel_llm.ReelModel", autospec=True) as model_class:
+            model = model_class.return_value
+            model.available = True
+            model.qualify.return_value = Qualification(category="FORECAST", evidence=[1], reason="Autor stawia własną prognozę.")
+            model.review.return_value = [Check(rule="R15", status="ok", evidence=[1], counter=[2],
+                                              reason="Ostrzeżenie na ekranie dotyczy przewidywanych wyników.")]
+            report = result(*context.rows, model=model)
+            self.assertEqual(report["inference"]["uknf"], MODEL)
+            forecast = next(rule for rule in report["rules"] if rule["rule_id"] == "R15")
+            self.assertEqual(forecast["counter_evidence"], [context.rows[2]])
+            self.assertEqual(forecast["status"], "PASS")
+            self.assertEqual(report["priority_count"], 0)
+            model.review.reset_mock()
+            model.qualify.return_value = Qualification(category="OTHER", evidence=[0], reason="Słowa padły w innym kontekście.")
+            rejected = result(*context.rows, model=model)
+            model.review.assert_not_called()
+            self.assertEqual(rejected["uknf_status"], "NOT_QUALIFIED")
+            self.assertIsNone(rejected["priority_count"])
+            self.assertEqual(rejected["timeline"], context.rows)
+
+    def test_broker_endorsement_far_from_trade_survives_wrong_neutral_vote(self):
+        data = (
+            segment("DESCRIPTION", "Film z wyjazdu w góry."),
+            segment("ASR", "Sprzedajcie obligacje funduszu i przejdźcie na akcje.", 2000, 5000, language="pl"),
+            segment("ASR", "Przejdźmy przez historię tego rynku.", 13000, 20000),
+            segment("ASR", "Wybierzcie tego brokera, bo jest najlepszy na rynku.", 35000, 40000),
+        )
+        with patch("investwatch.reel_llm.ReelModel", autospec=True) as model_class:
+            model = model_class.return_value
+            model.available = True
+            model.qualify.return_value = Qualification(category="FINANCE_INFORMATION", evidence=[0, 2],
+                                                        reason="Opis brzmi jak relacja z wyjazdu.")
+            model.review.return_value = []
+            report = result(*data, model=model)
+        self.assertEqual(report["content_type"], "PROMOTION")
+        self.assertEqual(report["decision"], "REVIEW")
+        trade = next(reason for reason in report["reasons"] if "Publiczna zachęta" in reason["text"])
+        promotion = next(reason for reason in report["reasons"] if "zachętę promocyjną" in reason["text"])
+        self.assertIn(data[1], trade["evidence"])
+        self.assertIn(data[-1], promotion["evidence"])
+        self.assertEqual(next(rule["status"] for rule in report["rules"] if rule["rule_id"] == "R11"), "NEEDS_REVIEW")
+
+    def test_quote_context_persists_across_distant_fragments(self):
+        speech = (
+            segment("ASR", "Przytoczę hasło, które pojawiało się w cudzej reklamie.", 0, 4500, language="pl"),
+            segment("ASR", "W materiale występowały dwie osoby i plansza.", 8500, 11000),
+            segment("ASR", "Kupcie akcje i wybierzcie tego brokera.", 20000, 24000),
+        )
+        with patch("investwatch.reel_llm.ReelModel", autospec=True) as model_class:
+            model = model_class.return_value
+            model.available = True
+            model.qualify.return_value = Qualification(category="PROMOTION", evidence=[2],
+                                                        reason="W materiale występuje zachęta.")
+            rejected = result(*speech, model=model)
+        self.assertEqual(rejected["decision"], "FINANCE_NEUTRAL")
+        self.assertEqual(rejected["timeline"], list(speech))
+        model.review.assert_not_called()
+
+    def test_every_check_sees_every_page_without_truncating_tail(self):
+        speech = [segment("ASR", ("Wyjaśnienie. " * 160) + str(index), index * 5000)
+                  for index in range(8)]
+        context = EvidenceContext.from_timeline(speech)
+        pages = list(context.pages())
+        self.assertGreater(len(pages), 1)
+        self.assertEqual(set().union(*pages), set(range(len(speech))))
+        model = ReelModel(Path("data"))
+        per_rule = {}
+        def infer(prompt, schema, tokens, constraints):
+            indices = {row[0] for row in json.loads(prompt.split("\n", 1)[0])}
+            for key in constraints["required"]:
+                per_rule.setdefault(key, set()).update(indices)
+            return {key: [-1, -1] for key in constraints["required"]}
+        with patch.object(model, "_infer", side_effect=infer):
+            review = model.review(context, "RECOMMENDATION")
+        self.assertEqual(review.complete, {definition[0] for definition in DEFINITIONS})
+        self.assertEqual({frozenset(indices) for indices in per_rule.values()}, {frozenset(range(len(speech)))})
+
+    def test_real_broker_offer_is_reviewed_on_gate_disagreement(self):
+        speech = segment("ASR", "Polecam ofertę brokera. Możecie dostać 150 złotych bonusów na zakup Bitcoina.",
+                         0, 7000, language="pl")
+        with patch("investwatch.reel_llm.ReelModel", autospec=True) as model_class:
+            model = model_class.return_value
+            model.available = True
+            model.qualify.return_value = Qualification(category="FINANCE_INFORMATION", evidence=[0],
+                                                        reason="Materiał przekazuje wiadomość finansową.")
+            model.review.return_value = [Check(rule="R03", status="ok", evidence=[0], counter=[],
+                                              reason="Brak przestrogi w nagraniu.")]
+            checked = result(speech, model=model)
+            self.assertEqual(checked["content_type"], "PROMOTION")
+            self.assertEqual(checked["inference"]["accepted_criteria"], ["R03"])
+            self.assertEqual(checked["rules"][0]["status"], "POTENTIAL_ISSUE")
+            training = {**speech, "quote": "Fikcyjny przykład: " + speech["quote"]}
+            clipped = result(training, model=model)
+            self.assertEqual(clipped["uknf_status"], "NOT_QUALIFIED")
+            model.review.assert_called_once()
 
 
 class RecommendationTest(TestCase):

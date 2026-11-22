@@ -22,6 +22,12 @@ export class ScanPage {
     WAITING: 'Czeka na kolejne rolki', STOPPING: 'Kończy bieżącą analizę',
     COMPLETED: 'Zakończono', STOPPED: 'Zatrzymano', INTERRUPTED: 'Przerwano', FAILED: 'Błąd sesji',
   };
+  protected readonly stages: Record<string, string> = {
+    FETCH: 'Pobieranie rolki', ASR: 'Transkrypcja mowy',
+    OCR: 'Tekst na ekranie', CONTEXT: 'Łączenie mowy, tekstu na ekranie i opisu',
+    QUALIFY: 'Kwalifikacja do testów', UKNF: 'Ocena według kryteriów UKNF',
+    SAVE: 'Zapis wyniku', DONE: 'Analiza zapisana',
+  };
 
   constructor() {
     document.title = 'Skaner rolek | SWRI';

@@ -16,10 +16,23 @@
     <div class="metrics" aria-label="Postęp skanowania" aria-live="polite">
       <div><strong>{{ state()?.scanned || 0 }}</strong><span>Zeskanowane rolki</span></div>
       <div><strong>{{ state()?.decisions?.['REVIEW'] || 0 }}</strong><span>Do sprawdzenia</span></div>
-      <div><strong>{{ state()?.decisions?.['OUT_OF_SCOPE'] || 0 }}</strong><span>Odrzucone</span></div>
+      <div><strong>{{ state()?.rejected || 0 }}</strong><span>Odrzucone</span></div>
       <div><strong>{{ state()?.average_seconds ?? '—' }}</strong><span>Sekund na rolkę</span></div>
     </div>
-    @if (state()?.current) { <p class="scan-current">W analizie: {{ state()?.current }}</p> }
+    @if (state(); as scan) {
+      @if (scan.current && scan.progress_percent != null) {
+        <div class="reel-progress">
+          <p class="scan-current"><strong>{{ scan.current }}</strong></p>
+          <div class="progress-label">
+            <span id="reel-stage">{{ stages[scan.stage || ''] }}
+              @if (scan.models?.[scan.stage || '']; as model) { · {{ model }} }
+            </span>
+            <strong>{{ scan.progress_percent }}%</strong>
+          </div>
+          <progress aria-labelledby="reel-stage" [value]="scan.progress_percent" max="100"></progress>
+        </div>
+      }
+    }
     @if (state()?.error) { <p class="scan-error" role="alert">Sesja przerwana. Kod błędu: {{ state()?.error }}</p> }
     @if (error()) { <p class="scan-error" role="alert">{{ error() }}</p> }
     <div class="scan-actions">

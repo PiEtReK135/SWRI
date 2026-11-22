@@ -39,7 +39,9 @@ Opcjonalnie zaimportuj publicznie dostępne materiały startowe, gdy aplikacja j
 node.exe scripts/import_reel_samples.mjs
 ```
 
-Import pobiera polskie nagrania lektorskie ze źródła wydawcy i przygotowuje z nich krótkie filmy z wizualizacją dźwięku. Temat feedu jest przypisywany automatycznie. Skaner wyznacza własną kategorię na podstawie mowy, obrazu i opisu.
+Import pobiera i skraca polskojęzyczne filmy ZPE z licencją Creative Commons. Temat feedu jest przypisywany automatycznie. Skaner łączy mowę, tekst z ekranu i opis, a zakwalifikowane materiały przechodzą 19 kontroli z katalogu UKNF. Licznik pokazuje etap i postęp bieżącej rolki. Raport szereguje materiały według liczby kryteriów wymagających uwagi.
+
+Na Windows polecenie `.\scripts\prepare_reel_llm.ps1` instaluje Qwen3.5-2B Q4_K_M i środowisko CPU llama.cpp do katalogu danych. Uruchom aplikację dotychczasową komendą. Skaner używa modelu do kwalifikacji rolek i ponownie do oceny UKNF zakwalifikowanych materiałów.
 
 Na ekranie skanera **Historia analiz lokalnych** pozwala wyświetlić sesję po dacie i pobrać samodzielny HTML. **Resetuj skaner** otwiera nowy profil i zeruje aktywną historię i strategię. [Architektura, algorytmy, źródła i publikacja podglądu](docs/reels.md).
 

@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 import json
 import logging
 from math import log, sqrt
+import os
+from pathlib import Path
 import re
 import shutil
 from threading import Event, Lock, Thread
@@ -16,13 +18,15 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, HTMLResponse
 
+from .rules import catalog, DEFINITIONS
+from .reel_llm import MODEL, ReelModel
 from .reel_review import classify, collect
 from .reels import database, initialize, MAX_BYTES
 from .scan_history import migrate_reports, snapshot, store_report, unpack
 
 STRATEGIES = {"Przewiń": None, "Krótszy seans": ("watch", 0.35),
               "Dłuższy seans": ("watch", 0.90), "Zapisz": ("save", 1.0)}
-RISK_ORDER = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
+REJECTED = ("OUT_OF_SCOPE", "FINANCE_NEUTRAL", "OUT_OF_MARKET", "SCREENED_CLEAR")
 REEL_ID = re.compile(r"[0-9a-f]{32}")
 logger = logging.getLogger(__name__)
 
@@ -110,6 +114,7 @@ class Scanner:
         self.path = root / "scan.sqlite3"
         self.origin = origin
         self.registry = registry
+        self.model = ReelModel(root.parent)
         self.lock = Lock()
         self.stopping = Event()
         self.thread = None
@@ -136,10 +141,15 @@ class Scanner:
         """)
         with database(self.path) as db:
             migrate_reports(db)
+            columns = {column["name"] for column in db.execute("PRAGMA table_info(scan_runs)")}
+            if "stage" not in columns:
+                db.execute("ALTER TABLE scan_runs ADD COLUMN stage TEXT")
+            if "progress_percent" not in columns:
+                db.execute("ALTER TABLE scan_runs ADD COLUMN progress_percent INTEGER")
 
     def recover(self):
         with database(self.path) as db:
-            db.execute("""UPDATE scan_runs SET status='INTERRUPTED', ended=?, current=NULL
+            db.execute("""UPDATE scan_runs SET status='INTERRUPTED', ended=?, current=NULL, stage=NULL, progress_percent=NULL
                        WHERE status IN ('STARTING','SCANNING','WAITING','STOPPING')""", (stamp(),))
 
     def active(self):
@@ -174,6 +184,7 @@ class Scanner:
         self.stop()
         if self.thread:
             self.thread.join()
+        self.model.close()
 
     def reset(self):
         with self.lock:
@@ -194,6 +205,9 @@ class Scanner:
             """)]
 
     def status(self, session: str | None = None):
+        models = {"ASR": "faster-whisper " + Path(os.environ.get("IW_WHISPER_MODEL", "base")).name.removeprefix("whisper-"),
+                  "OCR": "Tesseract pol+eng", "QUALIFY": MODEL if self.model.available else "Reguły lokalne",
+                  "UKNF": MODEL + " i reguły" if self.model.available else "Reguły lokalne"}
         with database(self.path) as db:
             row = db.execute("""SELECT * FROM scan_runs WHERE (? IS NULL OR id=?)
                                  AND started>(SELECT reset_at FROM scan_settings WHERE id=1)
@@ -201,24 +215,26 @@ class Scanner:
             if row is None:
                 if session:
                     raise HTTPException(404, "Podgląd tej sesji nie jest dostępny")
-                return {"status": "IDLE", "scanned": 0, "strategies": []}
+                return {"status": "IDLE", "scanned": 0, "strategies": [], "models": models}
             decisions = dict(db.execute("""
                 SELECT json_extract(payload,'$.decision'),COUNT(*) FROM scan_reports WHERE run=? GROUP BY 1
             """, (row["id"],)))
             average = db.execute("SELECT ROUND(AVG(seconds),2) FROM scan_reports WHERE run=?", (row["id"],)).fetchone()[0]
         return {**dict(row), "strategies": json.loads(row["strategies"]), "scanned": sum(decisions.values()),
-                "decisions": decisions, "average_seconds": average}
+                "decisions": decisions, "rejected": sum(decisions.get(key, 0) for key in REJECTED),
+                "average_seconds": average, "models": models}
 
     def reports(self, decision=None, risk=None, limit=100, offset=0, session=None):
         conditions = """FROM (
             SELECT scan_reports.*, ROW_NUMBER() OVER (PARTITION BY reel ORDER BY saved DESC) AS position
             FROM scan_reports JOIN scan_runs ON scan_reports.run=scan_runs.id
             WHERE started>(SELECT reset_at FROM scan_settings WHERE id=1) AND (? IS NULL OR run=?)
-        ) WHERE position=1 AND (? IS NULL OR json_extract(payload,'$.decision')=?)
+        ) WHERE position=1 AND (? IS NULL OR json_extract(payload,'$.decision')=?
+              OR (?='REJECTED' AND json_extract(payload,'$.decision') IN (?,?,?,?)))
           AND (? IS NULL OR json_extract(payload,'$.risk')=?)"""
-        params = (session, session, decision, decision, risk, risk)
-        order = ("CASE json_extract(payload,'$.risk') WHEN 'HIGH' THEN 3 WHEN 'MEDIUM' THEN 2 "
-                 "WHEN 'LOW' THEN 1 ELSE 0 END DESC, " if decision == "REVIEW" else "")
+        params = (session, session, decision, decision, decision, *REJECTED, risk, risk)
+        order = ("COALESCE(json_extract(payload,'$.priority_count'), json_extract(payload,'$.finding_count'), 0) DESC, "
+                 "CASE json_extract(payload,'$.risk') WHEN 'HIGH' THEN 3 WHEN 'MEDIUM' THEN 2 WHEN 'LOW' THEN 1 ELSE 0 END DESC, ")
         with database(self.path) as db:
             total = db.execute("SELECT COUNT(*) " + conditions, params).fetchone()[0]
             page = db.execute("SELECT * " + conditions + " ORDER BY " + order + "saved DESC LIMIT ? OFFSET ?",
@@ -234,7 +250,7 @@ class Scanner:
                     WHERE started>(SELECT reset_at FROM scan_settings WHERE id=1)
                 ) WHERE position=1 AND json_extract(payload,'$.decision')='REVIEW'
             """).fetchall()
-        ratings = {}
+        ratings, points = {}, Counter()
         for row in rows:
             report = json.loads(row["payload"])
             entities = report["companies"]
@@ -245,19 +261,28 @@ class Scanner:
             for role, name in set(groups):
                 metrics = ratings.setdefault((role, name), Counter())
                 metrics[report["risk"]] += 1
+                points[(role, name)] += report.get("priority_count", report.get("finding_count", 0)) or 0
         output = []
         for (role, name), metrics in ratings.items():
             total = metrics.total()
-            score = round(sum(metrics[risk] * rank for risk, rank in RISK_ORDER.items()) * 100 / (3 * total))
-            output.append({"name": name, "role": role, "count": total, "priority": score, "levels": dict(metrics)})
+            score = round(points[(role, name)] / total, 1)
+            output.append({"name": name, "role": role, "count": total, "priority": score,
+                           "criteria_count": len(DEFINITIONS), "levels": dict(metrics)})
         return sorted(output, key=lambda item: (-item["priority"], -item["count"], item["name"]))
 
     @staticmethod
     def summary(row, report):
+        criteria_count = report.get("criteria_count")
+        priority_count = report.get("priority_count", report.get("finding_count"))
         return {key: report[key] for key in (
             "title", "creator", "role", "decision", "risk", "modules", "companies", "url", "reasons"
         )} | {"run": row["run"], "reel": row["reel"], "seconds": row["seconds"], "saved": row["saved"],
-              "category": report.get("category", "Temat nieustalony"), "market_language": report.get("market_language")}
+              "category": report.get("category", "Temat nieustalony"), "market_language": report.get("market_language"),
+              "priority_count": priority_count, "priority_percent": (
+                  round(priority_count * 100 / criteria_count) if priority_count is not None and criteria_count else None),
+              "content_type": report.get("content_type"),
+              "uknf_status": report.get("uknf_status"), "criteria_count": criteria_count,
+              "finding_count": report.get("finding_count")}
 
     def detail(self, run, reel):
         with database(self.path) as db:
@@ -271,22 +296,35 @@ class Scanner:
 
     def progress(self, run, status, current=None):
         with database(self.path) as db:
-            db.execute("""UPDATE scan_runs SET status=?,current=? WHERE id=? AND status!='STOPPING'""",
-                       (status, current, run))
+            db.execute("""UPDATE scan_runs SET status=?,current=?,stage=?,progress_percent=?
+                          WHERE id=? AND status!='STOPPING'""",
+                       (status, current, "FETCH" if current else None, 0 if current else None, run))
+
+    def reel_progress(self, run, stage, percent):
+        with database(self.path) as db:
+            db.execute("""UPDATE scan_runs SET stage=?,progress_percent=?
+                          WHERE id=? AND current IS NOT NULL AND progress_percent<=?
+                          AND (stage!=? OR progress_percent!=?)""", (stage, percent, run, percent, stage, percent))
 
     def analyze(self, client, run, post):
         work = self.root / "evidence" / run / post["id"]
         work.mkdir(parents=True, exist_ok=True)
         asset = work / ("frame-still.jpg" if post["kind"] == "image" else "clip.mp4")
         source = client.source(post)
+        def progress(stage, percent):
+            self.reel_progress(run, stage, percent)
+
         try:
             client.asset(post, asset)
-            rows, coverage, limits = collect(asset, post, work)
-            return classify(post, rows, coverage, limits, self.registry(), client.profile(post), source)
+            rows, coverage, limits = collect(asset, post, work, progress)
+            progress("CONTEXT", 82)
+            return classify(post, rows, coverage, limits, self.registry(), client.profile(post), source,
+                            progress=progress, model=self.model)
         except Exception as error:
             # Keep failures in the review trail. Never label these as irrelevant.
             logger.exception("Reel analysis failed for %s", post["id"])
             return {"decision": "UNRESOLVED", "risk": None, "financial": False, "role": "Powiązanie nieustalone",
+                    "uknf_status": "UNASSESSED", "criteria_count": len(DEFINITIONS),
                     "modules": [], "companies": [], "creator": post["creator"], "url": source,
                     "reasons": [{"text": "Analiza pliku nie została ukończona.", "evidence": []}],
                     "coverage": {}, "timeline": [], "rules": [], "limitations": [type(error).__name__]}
@@ -323,6 +361,7 @@ class Scanner:
                 self.progress(run, "SCANNING", item["title"])
                 before = perf_counter()
                 report = self.analyze(client, run, item)
+                self.reel_progress(run, "SAVE", 98)
                 if previous is not None and report["decision"] != "UNRESOLVED":
                     strategy.observe(previous, report["financial"] and report["decision"] != "OUT_OF_MARKET")
                 previous = None
@@ -355,6 +394,7 @@ class Scanner:
                 with database(self.path) as db:
                     store_report(db, run, item["id"], stamp(), round(perf_counter() - before, 2),
                                  {"title": item["title"], "kind": item["kind"], **report})
+                    db.execute("UPDATE scan_runs SET stage='DONE',progress_percent=100 WHERE id=?", (run,))
                     if not reel:
                         db.execute("UPDATE scan_runs SET strategies=? WHERE id=?",
                                    (json.dumps(strategy.report(), ensure_ascii=False), run))
@@ -368,7 +408,7 @@ class Scanner:
             status, error = "FAILED", type(failure).__name__
         finally:
             with database(self.path) as db:
-                db.execute("UPDATE scan_runs SET status=?,ended=?,current=NULL,error=? WHERE id=?",
+                db.execute("UPDATE scan_runs SET status=?,ended=?,current=NULL,stage=NULL,progress_percent=NULL,error=? WHERE id=?",
                            (status, stamp(), error, run))
 
 
@@ -379,6 +419,7 @@ def scan_routes(scanner):
     router.post("/stop")(scanner.stop)
     router.post("/reset")(scanner.reset)
     router.get("/sessions")(scanner.sessions)
+    router.get("/criteria")(catalog)
     router.get("/ratings")(scanner.ratings)
     router.get("/reports/{run}/{reel}")(scanner.detail)
 

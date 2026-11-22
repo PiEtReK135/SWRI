@@ -21,11 +21,16 @@ export interface Evidence {
   quote: string;
   start_ms: number | null;
   artifact?: string;
+  luminance_span?: number | null;
+  relative_text_height?: number;
+  responsive_css_px?: Record<string, number>;
 }
 
 export interface Reason {
   text: string;
   evidence: Evidence[];
+  rule_id?: string | null;
+  points?: number;
 }
 
 export interface Review {
@@ -42,6 +47,12 @@ export interface Review {
   seconds: number;
   saved: string;
   category: string;
+  content_type?: string;
+  priority_count?: number | null;
+  priority_percent?: number | null;
+  uknf_status?: string;
+  criteria_count?: number;
+  finding_count?: number;
   market_language?: string;
   url: string;
 }
@@ -52,7 +63,11 @@ export interface ReviewDetail extends Review {
   timeline: Evidence[];
   limitations: string[];
   feedback: string;
-  rules: { rule_id: string; title: string; status: string; why: string }[];
+  inference?: { qualification: string; uknf: string; reason?: string; timeline_rows?: number;
+                context_pages?: number; semantic_checks?: number };
+  rules: { rule_id: string; title: string; status: string; why: string; points?: number;
+           legal_basis: string; evidence?: Evidence[]; counter_evidence?: Evidence[];
+           semantic_status?: string; method?: string }[];
 }
 
 export interface Rating {
@@ -60,6 +75,7 @@ export interface Rating {
   role: string;
   count: number;
   priority: number;
+  criteria_count: number;
   levels: Record<string, number>;
 }
 
@@ -69,6 +85,10 @@ export interface ScanStatus {
   started?: string;
   ended?: string | null;
   scanned: number;
+  rejected?: number;
+  stage?: string;
+  models?: Record<string, string>;
+  progress_percent?: number | null;
   decisions?: Record<string, number>;
   average_seconds?: number;
   current?: string;
@@ -85,9 +105,9 @@ export interface ScanSession {
 }
 
 export const decisions: Record<string, string> = {
-  REVIEW: 'Do sprawdzenia', FINANCE_NEUTRAL: 'Finanse bez promocji',
-  OUT_OF_SCOPE: 'Odrzucona', UNRESOLVED: 'Do ponownej analizy',
-  OUT_OF_MARKET: 'Poza polskim rynkiem',
+  REVIEW: 'Do sprawdzenia', FINANCE_NEUTRAL: 'Edukacja lub informacja',
+  OUT_OF_SCOPE: 'Poza finansami', UNRESOLVED: 'Do ponownej analizy',
+  OUT_OF_MARKET: 'Poza polskim rynkiem', SCREENED_CLEAR: 'Bez sygnału UKNF',
 };
 
 export const risks: Record<string, string> = { HIGH: 'Wysoki', MEDIUM: 'Średni', LOW: 'Niski' };

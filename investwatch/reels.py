@@ -24,10 +24,15 @@ TOPIC_PATTERNS = (
     r"\b(?:sport\w*|mecz\w*|trening\w*|rower\w*|biegan\w*)\b",
     r"\b(?:kuchni\w*|gotow\w*|przepis\w*|deser\w*)\b",
 )
+AUDIO_SAMPLES = (
+    "https://wolnelektury.pl/katalog/lektura/sonety-krymskie-stepy-akermanskie/",
+    "https://wolnelektury.pl/katalog/lektura/tuwim-ptasie-radio/",
+)
 RETIRED_SAMPLES = (
     "https://images.nasa.gov/details/as11-40-5903",
     "https://peach.blender.org/about/",
     "https://commons.wikimedia.org/wiki/File:Gut_zu_wissen,_Wie_funktionieren_ETFs%3F_-_Tagesschau.webm",
+    *AUDIO_SAMPLES,
 )
 VIDEO = {".mp4", ".mov", ".webm"}
 IMAGE = {".jpg", ".jpeg", ".png", ".webp"}
@@ -104,7 +109,7 @@ def create_platform(root):
 
     def existing(db, reel):
         row = db.execute("SELECT * FROM reels WHERE id=?", (reel,)).fetchone()
-        if row is None:
+        if row is None or row["source"] in AUDIO_SAMPLES:
             raise HTTPException(404, "Rolka nie istnieje")
         return row
 
@@ -114,8 +119,9 @@ def create_platform(root):
              creator: str | None = Query(None, max_length=64),
              seen: list[str] = Query(default=[], max_length=200)):
         with database(path) as db:
-            posts = db.execute("""SELECT * FROM reels
-                WHERE (? IS NULL OR creator=?) AND source NOT IN (?,?,?)
+            retired = ",".join("?" for _ in RETIRED_SAMPLES)
+            posts = db.execute(f"""SELECT * FROM reels
+                WHERE (? IS NULL OR creator=?) AND source NOT IN ({retired})
                 ORDER BY created DESC,id""", (creator, creator, *RETIRED_SAMPLES)).fetchall()
             activities = db.execute("""
                 SELECT reel, action, value, topic FROM signals JOIN reels ON signals.reel=reels.id

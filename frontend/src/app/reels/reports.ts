@@ -24,6 +24,20 @@ export class ReelReports {
   protected readonly error = signal('');
   protected readonly decisions = decisions;
   protected readonly risks = risks;
+  protected readonly contentTypes: Record<string, string> = {
+    PROMOTION: 'Promocja inwestycyjna', RECOMMENDATION: 'Rekomendacja inwestycyjna',
+    FORECAST: 'Prognoza inwestycyjna', INVESTMENT_ANALYSIS: 'Analiza inwestycyjna',
+    FINANCE_INFORMATION: 'Informacja lub edukacja finansowa', OTHER: 'Inna tematyka',
+    UNCLEAR: 'Temat nieustalony',
+  };
+  protected readonly inferenceLabels: Record<string, string> = {
+    REGUŁY: 'Reguły lokalne', UNAVAILABLE: 'Model niedostępny', REGUŁY_AWARYJNIE: 'Reguły lokalne po błędzie modelu',
+    MODEL_PARTIAL: 'Reguły lokalne i część odpowiedzi modelu',
+  };
+  protected readonly ruleStatuses: Record<string, string> = {
+    POTENTIAL_ISSUE: 'Potencjalny problem', NEEDS_REVIEW: 'Do weryfikacji', PASS: 'Dowód spełnienia',
+    NOT_APPLICABLE: 'Brak przesłanki', UNASSESSED: 'Brak danych do oceny',
+  };
   protected readonly label = secondsLabel;
   protected readonly date = dateLabel;
   protected readonly channel: Record<string, string> = {

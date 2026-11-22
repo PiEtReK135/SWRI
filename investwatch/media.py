@@ -10,6 +10,8 @@ import subprocess
 import tempfile
 from statistics import median
 
+from .rules import RISK
+
 MAX_SECONDS = 300
 STAMP = r"(?:\d{2}:)?\d{2}:\d{2}[,.]\d{3}"
 CUE = re.compile(rf"^({STAMP})\s+-->\s+({STAMP})(?:\s.*)?$")
@@ -77,7 +79,7 @@ def drawtext_font():
     return ""
 
 
-def asr(path, *, model_path=None, beam_size=5):
+def asr(path, *, model_path=None, beam_size=5, progress=None):
     from faster_whisper import WhisperModel
     import numpy as np
 
@@ -92,11 +94,16 @@ def asr(path, *, model_path=None, beam_size=5):
         audio, beam_size=beam_size, vad_filter=True, condition_on_previous_text=False,
         language_detection_segments=3, vad_parameters={"min_silence_duration_ms": 450},
     )
-    return [segment("ASR", chunk.text.strip(), round(chunk.start * 1000),
-                    round(chunk.end * 1000), language=info.language,
-                    avg_logprob=chunk.avg_logprob, language_probability=info.language_probability,
-                    model="faster-whisper/" + Path(model_path).name)
-            for chunk in chunks if chunk.text.strip()]
+    rows = []
+    for chunk in chunks:
+        if chunk.text.strip():
+            rows.append(segment("ASR", chunk.text.strip(), round(chunk.start * 1000), round(chunk.end * 1000),
+                                language=info.language, avg_logprob=chunk.avg_logprob,
+                                language_probability=info.language_probability,
+                                model="faster-whisper/" + Path(model_path).name))
+        if progress:
+            progress(min(1, chunk.end / max(info.duration, 1)))
+    return rows
 
 
 def ocr_languages():
@@ -112,13 +119,16 @@ def read_ocr(source, languages):
                       "-c", "tessedit_create_tsv=1"], timeout=120)
     pages = {}
     lines = {}
+    sizes = {}
     for word in csv.DictReader(io.StringIO(output.decode()), delimiter="\t", quoting=csv.QUOTE_NONE):
+        if word["level"] == "1":
+            sizes[word["page_num"]] = [int(word["width"]), int(word["height"])]
         if word["text"] and float(word["conf"]) >= 55:
             key = (word["page_num"], word["block_num"], word["par_num"], word["line_num"])
             if key not in lines:
                 lines[key] = []
                 pages.setdefault(int(word["page_num"]), []).append(lines[key])
-            lines[key].append(word)
+            lines[key].append({**word, "frame_size": sizes.get(word["page_num"])})
     return pages
 
 
@@ -127,13 +137,35 @@ def ocr_segments(frame, languages, lines, start):
     if not lines:
         return
     digest = hashlib.sha256(frame.read_bytes()).hexdigest()
+    gray = None
     for words in lines:
         x, y = min(int(w["left"]) for w in words), min(int(w["top"]) for w in words)
-        yield segment("OCR", " ".join(w["text"] for w in words), start,
-                      bbox=[x, y, max(int(w["left"]) + int(w["width"]) for w in words) - x,
-                            max(int(w["top"]) + int(w["height"]) for w in words) - y],
+        quote = " ".join(w["text"] for w in words)
+        size = words[0].get("frame_size")
+        box = [x, y, max(int(w["left"]) + int(w["width"]) for w in words) - x,
+               max(int(w["top"]) + int(w["height"]) for w in words) - y]
+        contrast = None
+        if size and re.search(RISK, quote, re.I):
+            if gray is None:
+                try:
+                    gray = command(["ffmpeg", "-v", "error", "-threads", "1", "-i", str(frame),
+                                    "-frames:v", "1", "-pix_fmt", "gray", "-threads", "1", "-f", "rawvideo", "pipe:1"])
+                except (OSError, subprocess.SubprocessError):
+                    gray = b""
+            if len(gray) == size[0] * size[1]:
+                contrast = luminance_span(gray, size[0], box)
+        yield segment("OCR", quote, start, bbox=box, frame_size=size, luminance_span=contrast,
                       frame_sha256=digest, artifact=frame.name, language=languages,
                       confidence=round(median(float(w["conf"]) for w in words), 1))
+
+
+def luminance_span(gray, stride, box):
+    x, y, width, height = box
+    values = sorted(gray[row * stride + column] for row in range(y, y + height, 2)
+                    for column in range(x, x + width, 2))
+    if values:
+        return values[(len(values) - 1) * 9 // 10] - values[(len(values) - 1) // 10]
+    return None
 
 
 def credible_ocr_line(words):
@@ -151,11 +183,11 @@ def ocr_frame(frame, languages, start=None):
     return ocr_segments(frame, languages, read_ocr(frame, languages).get(1, []), start)
 
 
-def ocr_batch(path, duration, clips, work, interval):
-    """Decode once and load the two OCR language packs once per reel."""
+def ocr_batch(path, duration, clips, work, interval, progress=None):
+    """Decode once and run OCR on bounded batches of sampled frames."""
     seconds = set(range(0, int(duration) + 1, interval))
     seconds.update(row["start_ms"] // 1000 for row in clips if row["start_ms"] is not None)
-    times = sorted(second for second in seconds if 0 <= second < duration)[:130]
+    times = sorted(second for second in seconds if 0 <= second < duration)
     filters = "+".join(f"eq(n,{second})" for second in times)
     with tempfile.TemporaryDirectory(dir=work) as temporary:
         folder = Path(temporary)
@@ -168,17 +200,21 @@ def ocr_batch(path, duration, clips, work, interval):
             raise RuntimeError("Niepełna ekstrakcja klatek OCR")
         languages = ocr_languages()
         manifest = folder / "frames.txt"
-        manifest.write_text("\n".join(str(frame.resolve()) for frame in frames) + "\n", encoding="utf-8")
-        pages = read_ocr(manifest, languages)
-        for page, (second, frame) in enumerate(zip(times, frames), 1):
-            if page not in pages:
-                continue
-            accepted = list(ocr_segments(frame, languages, pages[page], second * 1000))
-            if not accepted:
-                continue
-            published = work / f"frame-{second}.png"
-            frame.replace(published)
-            yield from ({**row, "artifact": published.name} for row in accepted)
+        batch_size = 10 if progress else len(frames)
+        for begin in range(0, len(frames), batch_size):
+            batch = frames[begin:begin + batch_size]
+            manifest.write_text("\n".join(str(frame.resolve()) for frame in batch) + "\n", encoding="utf-8")
+            pages = read_ocr(manifest, languages)
+            for page, frame in enumerate(batch, 1):
+                second = times[begin + page - 1]
+                accepted = list(ocr_segments(frame, languages, pages.get(page, []), second * 1000))
+                if not accepted:
+                    continue
+                published = work / f"frame-{second}.png"
+                frame.replace(published)
+                yield from ({**row, "artifact": published.name} for row in accepted)
+            if progress:
+                progress((begin + len(batch)) / len(frames))
 
 
 def ocr(path, duration, clips, work, interval=3):

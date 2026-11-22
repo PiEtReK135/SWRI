@@ -4,6 +4,8 @@ from datetime import datetime
 from html import escape
 import json
 
+EVIDENCE_FIELDS = {"evidence", "counter_evidence", "semantic_evidence"}
+
 
 def pack(report):
     timeline = report.get("timeline", [])
@@ -21,7 +23,7 @@ def pack(report):
         return result
 
     def compact(items):
-        return [{key: references(value) if key in {"evidence", "counter_evidence"} else value
+        return [{key: references(value) if key in EVIDENCE_FIELDS else value
                  for key, value in item.items()} for item in items]
 
     payload = {key: value for key, value in report.items() if key not in {"timeline", "rules", "reasons"}}
@@ -64,7 +66,7 @@ def unpack(db, row, detail=False):
                  "SELECT * FROM scan_lines WHERE run=? AND reel=? ORDER BY position", (row["run"], row["reel"]))}
     for group in ("reasons", "rules") if detail else ("reasons",):
         for item in payload[group]:
-            for key in ("evidence", "counter_evidence"):
+            for key in EVIDENCE_FIELDS:
                 if key in item:
                     item[key] = [lines[index] for index in item[key]]
     if detail:
@@ -72,12 +74,9 @@ def unpack(db, row, detail=False):
     return payload
 
 
-DECISIONS = {"REVIEW": "Do sprawdzenia", "FINANCE_NEUTRAL": "Finanse bez promocji",
+DECISIONS = {"REVIEW": "Do sprawdzenia", "FINANCE_NEUTRAL": "Edukacja lub informacja",
              "OUT_OF_SCOPE": "Poza tematyką", "OUT_OF_MARKET": "Poza polskim rynkiem",
-             "UNRESOLVED": "Do ponownej analizy"}
-PRIORITIES = {"HIGH": "wysoki", "MEDIUM": "średni", "LOW": "niski"}
-
-
+             "UNRESOLVED": "Do ponownej analizy", "SCREENED_CLEAR": "Bez sygnału UKNF"}
 def display_date(stamp):
     return datetime.fromisoformat(stamp).astimezone().strftime("%d.%m.%Y, %H:%M:%S %z")
 
@@ -86,11 +85,13 @@ def snapshot(run, items):
     cards = []
     for item in items:
         reasons = "".join(f"<li>{escape(reason['text'])}</li>" for reason in item["reasons"])
-        priority = PRIORITIES.get(item["risk"])
         status = DECISIONS.get(item["decision"], item["decision"])
+        count, total = item.get("priority_count"), item.get("criteria_count")
+        scale = f" · {count}/{total} kryteriów ({item['priority_percent']}%)" if (
+            count is not None and total and item.get("uknf_status") == "EVALUATED") else ""
         cards.append(f"""<article><h2>{escape(item['title'])}</h2>
 <p>{escape(item.get('category', 'Temat nieustalony'))} · {escape(status)}
-{f' · priorytet {priority}' if priority else ''}</p>
+{scale}</p>
 <p>Analiza: {escape(display_date(item['saved']))}</p><ul>{reasons}</ul></article>""")
     return f"""<!doctype html><html lang="pl"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>SWRI — wyniki lokalnej analizy</title>
