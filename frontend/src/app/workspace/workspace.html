@@ -120,7 +120,7 @@
         } @else { <option value="LOCAL_FEED">Lokalny feed</option> }
       </select>
     </label>
-    <label>Ryzyko
+    <label>Priorytet sygnału
       <select #riskControl [value]="risk()" (change)="risk.set(riskControl.value); filter()">
         <option value="">Wszystkie poziomy</option>
         @for (key of ['HIGH', 'MEDIUM', 'LOW']; track key) { <option [value]="key">{{ risks[key] }}</option> }
@@ -148,10 +148,10 @@
         </ol>
       </div>
       <div class="panel calibration">
-        <h2>Próg selekcji <output>{{ threshold() }} / 100</output></h2>
+        <h2>Próg selekcji <output>{{ threshold() }} pkt</output></h2>
         <label class="sr-only" for="threshold">Próg selekcji</label>
         <input id="threshold" #slider type="range" min="0" max="100" [value]="threshold()" (input)="threshold.set(+slider.value)">
-        <p>Wpływa na widok i trend. Waga sygnału oraz ocena UKNF pozostają dostępne w raporcie.</p>
+        <p>Próg dotyczy punktowej wagi najmocniejszego sygnału. Wpływa na filtrowanie i trend.</p>
         <div class="calibration-counts" aria-label="Wynik kalibracji na ocenach analityków">
           <span>TP <strong>{{ data.calibration.tp }}</strong></span><span>FP <strong>{{ data.calibration.fp }}</strong></span>
           <span>FN <strong>{{ data.calibration.fn }}</strong></span><span>TN <strong>{{ data.calibration.tn }}</strong></span>
@@ -170,7 +170,7 @@
         <div class="table-wrap">
           <table>
             <thead><tr><th scope="col">Materiał i źródło</th><th scope="col">Firma / publikujący</th><th scope="col">Moduły</th>
-              <th scope="col">Priorytet</th>@if (!published) { <th scope="col">Status</th> }<th scope="col">{{ published ? 'Pierwszy zapis' : 'Data' }}</th></tr></thead>
+              <th scope="col">Kryteria UKNF do sprawdzenia</th>@if (!published) { <th scope="col">Status</th> }<th scope="col">{{ published ? 'Pierwszy zapis' : 'Data' }}</th></tr></thead>
             <tbody>
               @for (item of data.items; track item.id) {
                 <tr [class.selected]="selected()?.id === item.id">
@@ -178,7 +178,10 @@
                     <small>{{ kinds[item.kind] }} · {{ sources[item.source] }} @if (item.platforms?.length) { · {{ item.platforms?.join(', ') }} }</small></td>
                   <td>@for (company of item.companies; track company.name) { <div>{{ company.name }}</div> }<small>{{ item.actor || 'Publikujący nieustalony' }}</small></td>
                   <td>{{ item.modules.join(', ') || 'Do kwalifikacji' }}</td>
-                  <td><span class="risk" [attr.data-risk]="item.risk">{{ item.risk ? risks[item.risk] + ' · ' + item.score : 'Brak punktacji' }}</span></td>
+                  <td>
+                    <strong>{{ criteriaResult(item) ?? 'Brak oceny UKNF' }}</strong>
+                    @if (item.risk) { <small><span class="risk" [attr.data-risk]="item.risk">{{ risks[item.risk] }} priorytet sygnału</span></small> }
+                  </td>
                   @if (!published) { <td>{{ reviews[item.review] }}</td> }
                   <td>{{ item.published || timestamp(item.first_seen || item.last_seen) }}</td>
                 </tr>
@@ -217,6 +220,8 @@
         @if (published && item.first_seen) { <dt>Pierwszy zapis</dt><dd>{{ timestamp(item.first_seen) }}</dd> }
         @if (item.analyzed_at) { <dt>Analiza lokalna</dt><dd>{{ timestamp(item.analyzed_at) }}</dd> }
         @else if (item.last_seen) { <dt>Ostatnie pozyskanie</dt><dd>{{ timestamp(item.last_seen) }}</dd> }
+        @if (criteriaResult(item); as result) { <dt>Kryteria UKNF do sprawdzenia</dt><dd>{{ result }}</dd> }
+        @if (item.risk) { <dt>Waga najmocniejszego sygnału</dt><dd>{{ item.score }} pkt</dd> }
         @if (item.language) { <dt>Język</dt><dd>{{ item.language === 'pl' ? 'Polski' : item.language === 'foreign' ? 'Inny' : 'Nieustalony' }}</dd> }
         @if (item.authorization) { <dt>Powiązanie z kartoteką</dt><dd>{{ item.authorization === 'MATCHED_IN_SCOPE' ? 'Zweryfikowane konto lub witryna' : 'Konto lub witryna wymaga potwierdzenia' }}</dd> }
       </dl>
@@ -269,7 +274,7 @@
         </details>
         @if (item.rules?.length) {
           <details>
-            <summary>Kryteria UKNF wymagające uwagi · {{ triggered(item.rules!) }} / {{ item.rules!.length }}</summary>
+            <summary>Oceny poszczególnych kryteriów UKNF</summary>
             <ul>@for (rule of item.rules; track rule.rule_id) {
               <li><strong>{{ rule.rule_id }} · {{ rule.title }}</strong> · {{ labels[rule.status] || rule.status }}. {{ rule.why }}</li>
             }</ul>

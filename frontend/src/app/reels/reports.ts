@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { Rating, Review, ReviewDetail, ScanStatus, dateLabel, decisions, request, risks, secondsLabel } from './reel-api';
+import { criteriaShare } from '../review-criteria';
 
 interface ReportPage { total: number; items: Review[] }
 type Tab = 'summary' | 'details' | 'ratings';
@@ -24,6 +25,7 @@ export class ReelReports {
   protected readonly error = signal('');
   protected readonly decisions = decisions;
   protected readonly risks = risks;
+  protected readonly criteriaShare = criteriaShare;
   protected readonly contentTypes: Record<string, string> = {
     PROMOTION: 'Promocja inwestycyjna', RECOMMENDATION: 'Rekomendacja inwestycyjna',
     FORECAST: 'Prognoza inwestycyjna', INVESTMENT_ANALYSIS: 'Analiza inwestycyjna',

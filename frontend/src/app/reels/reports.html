@@ -50,7 +50,7 @@
           </div>
           <div class="verdict" [attr.data-risk]="item.risk">
             @if (item.priority_count != null && item.criteria_count && item.uknf_status === 'EVALUATED') {
-              {{ item.priority_count }}/{{ item.criteria_count }} kryteriów ({{ item.priority_percent }}%)
+              {{ criteriaShare(item.priority_count, item.criteria_count) }} kryteriów
             } @else { {{ decisions[item.decision] }} }
           </div>
         </div>

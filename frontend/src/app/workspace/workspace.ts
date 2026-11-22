@@ -1,6 +1,7 @@
 import { CUSTOM_ELEMENTS_SCHEMA, ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { jsonPost, request } from '../reels/reel-api';
 import { published } from '../published';
+import { criteriaShare, reviewAreas } from '../review-criteria';
 
 type Mode = 'REAL' | 'SIMULATION';
 interface Finding { module: string | null; text: string; points: number; rule_id?: string; quotes: string[] }
@@ -41,6 +42,7 @@ interface PublishedSnapshot {
 })
 export class Workspace {
   protected readonly published = published;
+  private readonly catalogSize = reviewAreas.reduce((total, area) => total + area.criteria.length, 0);
   protected readonly snapshotTime = signal('');
   protected readonly modules = [
     { id: '', title: 'Przegląd', detail: 'Wszystkie materiały' },
@@ -346,7 +348,13 @@ export class Workspace {
     return 100 * count / Math.max(1, ...trend.map(point => point.count));
   }
 
-  protected triggered(rules: Rule[]): number { return rules.filter(rule => rule.points > 0).length; }
+  protected criteriaResult(item: Material): string | null {
+    const evaluated = item.rules?.length ? item.rules : null;
+    const flagged = new Set((evaluated ?? item.findings)
+      .filter(entry => entry.rule_id && entry.points > 0).map(entry => entry.rule_id)).size;
+    const hasAssessment = evaluated || flagged || (item.source !== 'LOCAL_FEED' && item.modules.includes('M2'));
+    return hasAssessment ? criteriaShare(flagged, evaluated?.length ?? this.catalogSize) : null;
+  }
   protected canRun(queue: Queue): boolean { return queue.sources.some(source => source.ready); }
   protected coverage(item: Material): [string, string][] { return Object.entries(item.coverage || {}); }
 

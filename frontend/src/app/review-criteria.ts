@@ -50,3 +50,7 @@ export const reviewAreas: readonly ReviewArea[] = [
     ],
   },
 ];
+
+export function criteriaShare(flagged: number, total: number): string {
+  return `${flagged}/${total} (${Math.round(flagged * 100 / total)}%)`;
+}
