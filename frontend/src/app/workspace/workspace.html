@@ -1,0 +1,290 @@
+<header class="swri-header">
+  <div class="swri-header-inner">
+    <a class="swri-wordmark" href="/" aria-label="SWRI, strona główna"><span class="swri-brand-mark" aria-hidden="true"></span>SWRI</a>
+    <nav class="swri-header-nav" aria-label="Nawigacja panelu">
+      <a href="/skanowanie">Skaner symulacji</a>
+      <a href="/dashboard">Import i raporty</a>
+    </nav>
+    <swri-appearance></swri-appearance>
+  </div>
+</header>
+<main>
+  <div class="intro">
+    <div><h1>Analiza rynku</h1><p>Monitoring reklam, informacji o ryzyku i ofert doradztwa inwestycyjnego.</p></div>
+    <div class="switch" aria-label="Tryb danych">
+      <button type="button" [attr.aria-pressed]="mode() === 'REAL'" (click)="switchMode('REAL')">Dane rzeczywiste</button>
+      <button type="button" [attr.aria-pressed]="mode() === 'SIMULATION'" (click)="switchMode('SIMULATION')">Symulacja</button>
+    </div>
+  </div>
+  <nav class="modules" aria-label="Moduły analityczne">
+    @for (entry of modules; track entry.id) {
+      <button type="button" [attr.aria-pressed]="module() === entry.id" (click)="switchModule(entry.id)">
+        <strong>@if (entry.id) { {{ entry.id }} · }{{ entry.title }}</strong>
+        <small>{{ entry.detail }}</small>
+      </button>
+    }
+  </nav>
+  <p class="message" role="alert" [hidden]="!error()">{{ error() }}</p>
+  <p class="message" role="status" [hidden]="!notice()">{{ notice() }}</p>
+  @if (mode() === 'REAL') {
+    <details class="panel sources">
+      <summary>Źródła i kolejka</summary>
+      @if (queue(); as state) {
+        <div class="queue-controls">
+          <div>
+            <p>{{ state.scheduled ? 'Automatyczna aktualizacja co ' + state.interval_minutes + ' min' : 'Uruchamianie ręczne' }}</p>
+            @if (state.scheduled && state.settings.next_run) { <p>Następna aktualizacja · {{ timestamp(state.settings.next_run) }}</p> }
+          </div>
+          <button type="button" [disabled]="pending() || !canRun(state)" (click)="run()">Uruchom kolektory</button>
+        </div>
+        <ul class="source-list">
+          @for (provider of state.sources; track provider.id) {
+            <li><strong>{{ provider.name }}</strong><span>{{ providerState(provider, state) }}</span>
+              @if (provider.ready) { <button type="button" [disabled]="pending()" (click)="run(provider.id)">Dodaj do kolejki</button> }
+            </li>
+          }
+        </ul>
+        @if (state.jobs.length) {
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th scope="col">Źródło</th><th scope="col">Zakres</th><th scope="col">Stan zadania</th><th scope="col">Rekordy</th></tr></thead>
+              <tbody>
+                @for (job of state.jobs; track job.id) {
+                  <tr><td>{{ sources[job.source] }}</td><td>{{ job.target || 'Oznaczone współprace' }}</td>
+                    <td>{{ labels[job.status] }} @if (job.error) { · {{ jobError(job.error) }} }</td><td>{{ job.records }}</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      }
+    </details>
+    <details class="panel">
+      <summary>Kartoteka firm zweryfikowanych w KNF · {{ registry().length }}</summary>
+      @if (registry().length) {
+        <ul class="source-list">
+          @for (company of registry(); track company.name) {
+            <li><strong>{{ company.name }}</strong>
+              @if (company.registry_url) { <a [href]="company.registry_url" target="_blank" rel="noopener">Wpis KNF</a> }
+              @if (company.registry_checked_at) { <span>Weryfikacja {{ company.registry_checked_at.slice(0, 10) }}</span> }
+              @if (company.advisory_authorized === true) { <span>Doradztwo w zakresie zezwolenia</span> }
+            </li>
+          }
+        </ul>
+      }
+      <form class="registry" (submit)="register($event)">
+        <label>Pełna nazwa firmy<input name="name" required maxlength="250"></label>
+        <label>Wpis w rejestrze KNF<input name="registry_url" type="url" required></label>
+        <label>Data weryfikacji<input name="registry_checked_at" type="date" required></label>
+        <label>Oficjalna witryna lub profil<input name="publisher_url" type="url"></label>
+        <label>Forma działalności
+          <select name="market_presence"><option value="PL_DOMESTIC">Firma krajowa</option><option value="PL_BRANCH">Oddział w Polsce</option>
+            <option value="CROSS_BORDER">Działalność transgraniczna</option><option value="UNSPECIFIED">Nieustalona</option></select>
+        </label>
+        <label>Identyfikatory kont<input name="publisher_ids" placeholder="META:123, TIKTOK:456"></label>
+        <label>Warianty nazwy oddzielone przecinkami<input name="aliases"></label>
+        <label>Doradztwo w zakresie zezwolenia
+          <select name="advisory"><option value="">Niezweryfikowane</option><option value="true">Tak</option><option value="false">Nie</option></select>
+        </label>
+        <label class="check"><input type="checkbox" required> Potwierdzam wpis i uprawnienie do działania w Polsce</label>
+        <button type="submit" [disabled]="pending()">Zapisz firmę</button>
+      </form>
+    </details>
+    <p class="live" role="status"><span [class.online]="live()"></span>{{ live() ? 'Alerty wysokiego ryzyka połączone' : 'Łączenie alertów wysokiego ryzyka' }}</p>
+    @if (alert()) { <p class="message" role="status">{{ alert() }}</p> }
+  } @else {
+    <aside class="panel simulation">
+      <div><strong>Środowisko testowe</strong><p>Wyniki pochodzą z lokalnego feedu SWRI i jego symulowanego systemu rekomendacji.</p></div>
+      <a class="swri-action" href="/skanowanie?start=1" target="_blank" rel="noopener">Uruchom skaner symulacji</a>
+      <a href="/rolki">Otwórz feed rolek</a>
+    </aside>
+  }
+  <section class="panel filter" aria-label="Filtry spraw">
+    <label>Źródło
+      <select #sourceControl [value]="source()" (change)="source.set(sourceControl.value); filter()">
+        <option value="">Wszystkie źródła</option>
+        @if (mode() === 'REAL') {
+          @for (key of ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'WEB', 'META']; track key) {
+            <option [value]="key">{{ sources[key] }}</option>
+          }
+        } @else { <option value="LOCAL_FEED">Lokalny feed</option> }
+      </select>
+    </label>
+    <label>Ryzyko
+      <select #riskControl [value]="risk()" (change)="risk.set(riskControl.value); filter()">
+        <option value="">Wszystkie poziomy</option>
+        @for (key of ['HIGH', 'MEDIUM', 'LOW']; track key) { <option [value]="key">{{ risks[key] }}</option> }
+      </select>
+    </label>
+    <label>Data od<input #start type="date" [value]="since()" (change)="since.set(start.value); filter()"></label>
+    <label>Data do<input #end type="date" [value]="until()" (change)="until.set(end.value); filter()"></label>
+    <label class="check"><input #above type="checkbox" [checked]="onlyAbove()" (change)="onlyAbove.set(above.checked); filter()"> Od progu selekcji</label>
+  </section>
+  @if (!loading() && page(); as data) {
+    <section class="overview" aria-label="Wskaźniki i kalibracja">
+      <div class="panel trend">
+        <div class="section-title"><h2>Trend · ostatnie 14 dni</h2><span>{{ data.above_threshold }} od progu</span></div>
+        <p>Materiały powiązane z modułem, od progu selekcji</p>
+        <ol aria-label="Liczba materiałów według dnia">
+          @for (point of data.trend; track point.date) {
+            <li [title]="point.date + ' · ' + point.count">
+              <span class="bar-track"><span class="bar" [class.zero]="point.count === 0" [style.height.%]="chartHeight(point.count, data.trend)"></span></span>
+              <span aria-hidden="true">{{ point.date.slice(-2) }}</span><span class="sr-only">{{ point.date }} · {{ point.count }}</span>
+            </li>
+          }
+        </ol>
+      </div>
+      <div class="panel calibration">
+        <h2>Próg selekcji <output>{{ threshold() }} / 100</output></h2>
+        <label class="sr-only" for="threshold">Próg selekcji</label>
+        <input id="threshold" #slider type="range" min="0" max="100" [value]="threshold()" (input)="threshold.set(+slider.value)">
+        <p>Wpływa na widok i trend. Waga sygnału oraz ocena UKNF pozostają dostępne w raporcie.</p>
+        <div class="calibration-counts" aria-label="Wynik kalibracji na ocenach analityków">
+          <span>TP <strong>{{ data.calibration.tp }}</strong></span><span>FP <strong>{{ data.calibration.fp }}</strong></span>
+          <span>FN <strong>{{ data.calibration.fn }}</strong></span><span>TN <strong>{{ data.calibration.tn }}</strong></span>
+        </div>
+        <button type="button" [disabled]="pending() || threshold() === data.threshold" (click)="saveThreshold()">Zapisz próg</button>
+      </div>
+    </section>
+    <section class="panel results" aria-labelledby="results-title">
+      <div class="section-title">
+        <h2 id="results-title">Materiały <span>{{ data.total }}</span></h2>
+        @if (data.total) { <a [href]="exportUrl()">Eksportuj CSV</a> }
+      </div>
+      @if (data.items.length) {
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th scope="col">Materiał i źródło</th><th scope="col">Firma / publikujący</th><th scope="col">Moduły</th>
+              <th scope="col">Priorytet</th><th scope="col">Status</th><th scope="col">Data</th></tr></thead>
+            <tbody>
+              @for (item of data.items; track item.id) {
+                <tr [class.selected]="selected()?.id === item.id">
+                  <td><button class="text-button" type="button" (click)="open(item)">{{ item.title || item.actor || 'Zobacz materiał' }}</button>
+                    <small>{{ kinds[item.kind] }} · {{ sources[item.source] }} @if (item.platforms?.length) { · {{ item.platforms?.join(', ') }} }</small></td>
+                  <td>@for (company of item.companies; track company.name) { <div>{{ company.name }}</div> }<small>{{ item.actor || 'Publikujący nieustalony' }}</small></td>
+                  <td>{{ item.modules.join(', ') || 'Do kwalifikacji' }}</td>
+                  <td><span class="risk" [attr.data-risk]="item.risk">{{ item.risk ? risks[item.risk] + ' · ' + item.score : 'Brak punktacji' }}</span></td>
+                  <td>{{ reviews[item.review] }}</td>
+                  <td>{{ item.published || timestamp(item.first_seen || item.last_seen) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        @if (data.total > pageSize) {
+          <div class="pagination">
+            <button type="button" [disabled]="!offset()" (click)="paginate(offset() - pageSize)">Poprzednia</button>
+            <span>Od {{ offset() + 1 }} do {{ offset() + data.items.length }} z {{ data.total }}</span>
+            <button type="button" [disabled]="offset() + pageSize >= data.total" (click)="paginate(offset() + pageSize)">Następna</button>
+          </div>
+        }
+      } @else {
+        <p>{{ mode() === 'REAL' ? 'Brak wyników. Sprawdź konfigurację źródeł lub zmień filtry.' : 'Brak wyników dla tych filtrów. Uruchom skaner symulacji, aby zebrać materiały.' }}</p>
+      }
+    </section>
+  } @else if (loading()) {
+    <p role="status">Pobieranie danych panelu…</p>
+  }
+  @if (selected(); as item) {
+    <section class="panel detail" aria-label="Szczegóły materiału">
+      <div class="section-title">
+        <div><small>{{ kinds[item.kind] }} · {{ sources[item.source] }}</small><h2>{{ item.title || item.actor || 'Materiał' }}</h2></div>
+        <button type="button" (click)="closeDetail()">Zamknij</button>
+      </div>
+      <dl>
+        <dt>Publikujący</dt><dd>{{ item.actor || 'Nieustalony' }}</dd>
+        @if (item.payer) { <dt>Podmiot finansujący</dt><dd>{{ item.payer }}</dd> }
+        @if (item.label) { <dt>Oznaczenie źródłowe</dt><dd>{{ item.label }}</dd> }
+        @if (item.last_seen) { <dt>Ostatnie pozyskanie</dt><dd>{{ timestamp(item.last_seen) }}</dd> }
+        @if (item.language) { <dt>Język</dt><dd>{{ item.language === 'pl' ? 'Polski' : item.language === 'foreign' ? 'Inny' : 'Nieustalony' }}</dd> }
+        @if (item.authorization) { <dt>Powiązanie z kartoteką</dt><dd>{{ item.authorization === 'MATCHED_IN_SCOPE' ? 'Zweryfikowane konto lub witryna' : 'Konto lub witryna wymaga potwierdzenia' }}</dd> }
+      </dl>
+      <ul class="companies">
+        @for (company of item.companies; track company.name) {
+          <li>{{ company.name }}
+            @if (company.registry_url) { · <a [href]="company.registry_url" target="_blank" rel="noopener">Wpis KNF</a> · {{ company.registry_checked_at }} }
+          </li>
+        }
+      </ul>
+      <div class="detail-links">
+        @if (item.url) { <a [href]="item.url" target="_blank" rel="noopener">Oryginał publikacji</a> }
+        @if (item.landing_url) { <a [href]="item.landing_url" target="_blank" rel="noopener">Strona docelowa kampanii</a> }
+        @if (item.report_url) { <a href="/skanowanie">Historia skanera</a> }
+      </div>
+      @if (item.related?.length) {
+        <details>
+          <summary>Podobne treści dotyczące tej samej firmy</summary>
+          <ul>@for (related of item.related; track related.id) {
+            <li><a [href]="related.url" target="_blank" rel="noopener">{{ related.title || related.actor || sources[related.source] }}</a>
+              · {{ sources[related.source] }} · {{ related.similarity }}% podobieństwa tekstu</li>
+          }</ul>
+        </details>
+      }
+      @if (item.findings.length) {
+        <h3>Sygnały do sprawdzenia</h3>
+        <ol class="findings">
+          @for (finding of item.findings; track $index) {
+            <li><strong>{{ finding.module || item.modules.join(', ') }} @if (finding.rule_id) { · {{ finding.rule_id }} }</strong>
+              {{ finding.text }} @if (finding.points) { <small>{{ finding.points }} pkt</small> }
+              @for (quote of finding.quotes; track $index) { <blockquote>{{ quote }}</blockquote> }
+            </li>
+          }
+        </ol>
+      }
+      @if (item.timeline; as timeline) {
+        <div class="coverage">
+          @for (channel of coverage(item); track channel[0]) { <span>{{ labels[channel[0]] || channel[0] }} · {{ labels[channel[1]] || channel[1] }}</span> }
+        </div>
+        @if (item.inference; as inference) { <p>Kwalifikacja · {{ inference.qualification }} · Kontrola UKNF · {{ inference.uknf }}</p> }
+        <details>
+          <summary>Tekst i transkrypcja ({{ timeline.length }})</summary>
+          <ul class="timeline">
+            @for (row of timeline; track $index) {
+              <li><strong>{{ labels[row.kind] || row.kind }} @if (row.start_ms != null) { · {{ row.start_ms / 1000 }} s }</strong>
+                {{ row.quote }}
+                @if (row.artifact) { · <a [href]="proofUrl(item, row.artifact)" target="_blank" rel="noopener">Klatka</a> }</li>
+            }
+          </ul>
+        </details>
+        @if (item.rules?.length) {
+          <details>
+            <summary>Kryteria UKNF wymagające uwagi · {{ triggered(item.rules!) }} / {{ item.rules!.length }}</summary>
+            <ul>@for (rule of item.rules; track rule.rule_id) {
+              <li><strong>{{ rule.rule_id }} · {{ rule.title }}</strong> · {{ labels[rule.status] || rule.status }}. {{ rule.why }}</li>
+            }</ul>
+          </details>
+        }
+        @if (item.limitations?.length) {
+          <details><summary>Ograniczenia materiału</summary><ul>@for (reason of item.limitations; track $index) { <li>{{ reason }}</li> }</ul></details>
+        }
+        <form class="review" (submit)="review($event, item)">
+          <label>Status
+            <select name="review" [value]="item.review">
+              @for (review of ['NEW', 'IN_REVIEW', 'CONFIRMED_EVIDENCE', 'DISMISSED']; track review) { <option [value]="review">{{ reviews[review] }}</option> }
+            </select>
+          </label>
+          <label>Identyfikator analityka<input name="operator" [value]="item.operator || ''" required maxlength="100"></label>
+          <label>Notatka<textarea name="note" [value]="item.note || ''" maxlength="1000" rows="2"></textarea></label>
+          <button type="submit" [disabled]="pending()">Zapisz decyzję</button>
+        </form>
+        @if (item.review_history?.length) {
+          <details><summary>Historia decyzji</summary>
+            <ul>@for (entry of item.review_history; track $index) {
+              <li>{{ timestamp(entry.created) }} · {{ entry.operator }} · {{ reviews[entry.status] }} @if (entry.note) { · {{ entry.note }} }</li>
+            }</ul>
+          </details>
+        }
+        @if (item.source !== 'LOCAL_FEED') {
+          <details><summary>Dołącz autoryzowany plik do analizy ASR i OCR</summary>
+            <form class="upload" (submit)="upload($event, item)">
+              <label>Film lub obraz<input type="file" name="file" accept=".mp4,.mov,.webm,.jpg,.jpeg,.png,.webp" required></label>
+              <label class="check"><input type="checkbox" name="rights_confirmed" value="true" required> Mam prawo wykorzystać ten plik</label>
+              <button type="submit" [disabled]="pending()">Dołącz i przeanalizuj</button>
+              @if (item.has_media) { <p>Do materiału jest już dołączony plik.</p> }
+            </form>
+          </details>
+        }
+      }
+    </section>
+  }
+</main>

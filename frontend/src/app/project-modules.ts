@@ -13,4 +13,11 @@ export const projectModules = [
     description: 'Ocena materiałów publikowanych bezpośrednio przez firmy inwestycyjne zarejestrowane w Polsce, w tym polskie oddziały firm zagranicznych. Sprawdzamy, czy ostrzeżenia są widoczne, zrozumiałe i odpowiednio wyeksponowane w stosunku do informacji o zyskach.',
     result: 'Lista materiałów i fragmentów wymagających uwagi, ze wskazaniem kryterium oceny.',
   },
+  {
+    id: 3,
+    shortTitle: 'Shadow Advisory',
+    title: 'Identyfikacja potencjalnie nieautoryzowanych usług',
+    description: 'Wyszukiwanie ofert indywidualnych rekomendacji dotyczących konkretnych instrumentów finansowych. Każdy sygnał trafia do weryfikacji statusu i zakresu zezwoleń.',
+    result: 'Zestawienie podmiotów, treści ofert, dowodów i adresów źródłowych.',
+  },
 ] as const;

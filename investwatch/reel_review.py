@@ -30,6 +30,11 @@ PROMO = (r"\b(?:zaloz|zalozcie|otworz|otworzcie) (?:sobie )?(?:rachunek|konto)\b
          r"moj kurs|platna grup\w*|dolacz do (?:platformy|grupy|kursu)|referral|sign up|use (?:my|the) code)\b|#reklama\b")
 SELF = r"\b(?:moj (?:kurs|program|abonament|ebook)|moj\w* (?:platn\w* )?grup\w*|moje szkolenie|my course)\b"
 PERSONAL = r"\b(?:na podstawie twoj\w*|twoj\w* sytuacj\w*|dopasuj\w* do (?:ciebie|twoj\w*)|indywidualn\w* rekomendacj\w*|twoj\w* potrzeb\w*)\b"
+OFFER = (r"\b(?:doradztw\w* inwest\w*|wealth management|investment consulting|family office|"
+         r"indywidualn\w* (?:konsultacj\w*|rekomendacj\w*)|"
+         r"(?:oferujemy|przygotujemy|przygotuje) (?:ci |dla ciebie )?rekomendacj\w*)\b")
+TRANSACTION = (r"\b(?:kup\w*|sprzed\w*|naby\w*|zby\w*|trzymaj\w*|"
+               r"zakup\w*|kupn\w*|utrzym\w*|transakcj\w*)\b")
 DIRECT = r"\b(?:kup|kupcie|kupic|kupujcie|sprzedaj|sprzedajcie|sprzedac|trzymaj|trzymajcie|buy|sell)\b"
 PUBLIC_TRADE = (r"\b(?:kup|kupcie|kupujcie|sprzedaj|sprzedajcie|trzymaj|trzymajcie|"
                 r"zainwestuj|zainwestujcie|polecam (?:kupic|kupno|sprzedaz)|"
@@ -146,6 +151,19 @@ def broker_endorsements(rows):
     return [row for row in rows if row in hits or row in explicit or row in linked]
 
 
+def advisory_offer(rows):
+    """Ground a service offer and its terms in adjacent passages from the same channel."""
+    for index, row in enumerate(rows):
+        if not matches(OFFER, row["quote"]):
+            continue
+        nearby = [item for item in rows[max(0, index - 1):index + 2] if item["kind"] == row["kind"]
+                  and (row["start_ms"] is None or abs(row["start_ms"] - (item["start_ms"] or 0)) <= 8000)]
+        context = " ".join(item["quote"] for item in nearby)
+        if all(matches(pattern, context) for pattern in (PERSONAL, TRANSACTION, INSTRUMENT)):
+            return nearby
+    return []
+
+
 def apply_model_checks(evaluations, checks, context, partial):
     by_rule = {check.rule: check for check in checks}
     accepted = []
@@ -209,12 +227,13 @@ def apply_model_checks(evaluations, checks, context, partial):
     return accepted
 
 
-def classify(post, rows, coverage, limitations, registry, profile_url, public_url, progress=None, model=None):
+def classify(post, rows, coverage, limitations, registry, profile_url, public_url, progress=None, model=None,
+             official_entity=None, known_promotion=False, semantic_keys=None):
     timeline = sorted(rows, key=lambda row: (row["start_ms"] is not None, row["start_ms"] or 0))
     declared = [item for item in registry if not item.get("is_demo") and any(
         analysis.matches_name(name, row["quote"])
         for name in (item["name"], *item.get("aliases", [])) for row in timeline)]
-    official = next((item for item in registry if not item.get("is_demo") and item.get("in_scope")
+    official = official_entity or next((item for item in registry if profile_url and not item.get("is_demo") and item.get("in_scope")
                      and item.get("publisher_url") == profile_url), None)
     credible = [row for row in timeline if row["kind"] != "ASR" or row.get("avg_logprob", 0) >= -1.05]
     uncertain_speech = len(credible) != len(timeline)
@@ -230,9 +249,11 @@ def classify(post, rows, coverage, limitations, registry, profile_url, public_ur
     advice_rows = [row for row in advice_rows if any(other is row or other["kind"] == "DESCRIPTION" or (
         row["start_ms"] is not None and other["start_ms"] is not None
         and abs(row["start_ms"] - other["start_ms"]) <= 5000) for other in personalized)]
-    financial = bool(finance_rows or declared)
-    promotion = financial and bool(promo_rows)
-    partial = uncertain_speech or any(value == "ERROR" for value in coverage.values())
+    offered_advice = advisory_offer(claims)
+    advice_rows = [row for row in claims if row in advice_rows or row in offered_advice]
+    financial = bool(finance_rows or declared or official)
+    promotion = financial and bool(promo_rows or known_promotion)
+    partial = uncertain_speech or any(value in {"ERROR", "UNAVAILABLE"} for value in coverage.values())
     market = market_language(timeline)
     if promotion:
         addressed_actions.extend(row for row in finance_rows if row not in addressed_actions
@@ -261,7 +282,9 @@ def classify(post, rows, coverage, limitations, registry, profile_url, public_ur
     answer = None
     qualification_evidence = []
     model_failure = False
-    if model and model.available and context.rows:
+    if known_promotion:
+        inference["qualification"] = "DANE ŹRÓDŁOWE"
+    if model and model.available and context.rows and not known_promotion:
         if progress:
             progress("QUALIFY", 83)
         started = perf_counter()
@@ -307,6 +330,8 @@ def classify(post, rows, coverage, limitations, registry, profile_url, public_ur
                 addressed_actions, advice_rows = [], []
             financial = content_type not in {"OTHER", "UNCLEAR"}
             promotion = content_type == "PROMOTION"
+    if known_promotion and (financial or official) and market in {"pl", "unknown"}:
+        content_type, financial, promotion = "PROMOTION", True, True
     if market not in {"pl", "unknown"}:
         decision = "OUT_OF_MARKET"
     elif content_type in QUALIFIED:
@@ -318,7 +343,8 @@ def classify(post, rows, coverage, limitations, registry, profile_url, public_ur
     else:
         decision = "FINANCE_NEUTRAL" if financial else "OUT_OF_SCOPE"
 
-    modules = ((["M2"] if official else ["M1"] if promotion else []) + (["M3"] if advice_rows else [])
+    advisory_attention = advice_rows and not (official and official.get("advisory_authorized"))
+    modules = ((["M2"] if official and promotion else ["M1"] if promotion else []) + (["M3"] if advisory_attention else [])
                if decision == "REVIEW" else [])
     meta = {"url": public_url, "is_demo": False, "relation": "FIRST_PARTY" if official else "UNKNOWN",
             "publisher_url": profile_url}
@@ -337,8 +363,9 @@ def classify(post, rows, coverage, limitations, registry, profile_url, public_ur
     if qualified and using_model:
         started = perf_counter()
         try:
-            reviews = model.review(context, content_type,
-                                   (lambda done, total: progress("UKNF", 88 + 9 * done // total)) if progress else None)
+            callback = (lambda done, total: progress("UKNF", 88 + 9 * done // total)) if progress else None
+            options = {"selected_keys": semantic_keys} if semantic_keys is not None else {}
+            reviews = model.review(context, content_type, callback, **options)
         except MODEL_ERRORS as error:
             inference["uknf"] = "REGUŁY_AWARYJNIE"
             limitations.append(f"Ocena semantyczna UKNF niedostępna ({type(error).__name__}).")
@@ -351,12 +378,16 @@ def classify(post, rows, coverage, limitations, registry, profile_url, public_ur
                                  accepted_criteria=accepted)
                 if completed is not None:
                     inference["semantic_checks"] = len(completed)
+                    expected_keys = semantic_keys if semantic_keys is not None else {
+                        evaluation["rule_id"] for evaluation in evaluations}
+                    inference["expected_semantic_checks"] = len(expected_keys)
                     for evaluation in evaluations:
                         key = evaluation["rule_id"]
                         evaluation["semantic_status"] = (
-                            "INCOMPLETE" if key not in completed else "RULE_ONLY" if evaluation["points"] and key not in accepted
+                            "UNASSESSED" if key not in expected_keys else "INCOMPLETE" if key not in completed
+                            else "RULE_ONLY" if evaluation["points"] and key not in accepted
                             else "CHECKED")
-                    if len(completed) != len(evaluations):
+                    if expected_keys - completed:
                         inference["uknf"] = "REGUŁY_AWARYJNIE" if not completed else "MODEL_PARTIAL"
                         limitations.append("Nie wszystkie odpowiedzi modelu przeszły walidację. Pełna kontrola reguł pozostała dostępna.")
         if progress:
@@ -364,7 +395,7 @@ def classify(post, rows, coverage, limitations, registry, profile_url, public_ur
     evaluations.sort(key=lambda rule: -rule["points"])
     finding_count = sum(rule["points"] > 0 for rule in evaluations)
     criteria_count = len(rules.DEFINITIONS)
-    if qualified and not finding_count:
+    if qualified and not finding_count and not advisory_attention:
         decision = ("UNRESOLVED" if partial or inference["uknf"] in {"REGUŁY_AWARYJNIE", "MODEL_PARTIAL"}
                     else "SCREENED_CLEAR")
 
@@ -373,8 +404,9 @@ def classify(post, rows, coverage, limitations, registry, profile_url, public_ur
         if evaluation["points"]:
             reasons.append((evaluation["title"] + ". " + evaluation["why"], evaluation["evidence"],
                             evaluation["rule_id"], evaluation["points"]))
-    if advice_rows and decision == "REVIEW":
-        reasons.append(("Sygnał rekomendacji dopasowanej do odbiorcy dotyczącej instrumentu.", advice_rows, None, 0))
+    if advisory_attention and decision == "REVIEW":
+        reasons.append(("Sygnał rekomendacji dopasowanej do odbiorcy dotyczącej instrumentu.",
+                        advice_rows, None, 85 if offered_advice and not official else 45))
     if addressed_actions and decision == "REVIEW":
         reasons.append(("Publiczna zachęta do transakcji. Sprawdź kontekst i charakter produktu.",
                         addressed_actions, None, 0))
@@ -412,7 +444,8 @@ def classify(post, rows, coverage, limitations, registry, profile_url, public_ur
         role = "Promocja firmy do potwierdzenia"
     else:
         role = "Powiązanie nieustalone"
-    return {"decision": decision, "risk": rules.priority_level(max((rule["points"] for rule in evaluations), default=0)),
+    reasons.sort(key=lambda reason: -reason[3])
+    return {"decision": decision, "risk": rules.priority_level(max((reason[3] for reason in reasons), default=0)),
             "priority_count": finding_count if qualified else None, "criteria_count": criteria_count,
             "priority_percent": round(finding_count * 100 / criteria_count) if qualified else None,
             "content_type": content_type, "inference": inference,

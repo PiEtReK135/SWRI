@@ -25,6 +25,10 @@ Jeśli npm zgłasza `UNABLE_TO_VERIFY_LEAF_SIGNATURE`, ustaw w tym oknie PowerSh
 
 Po restarcie uruchom z katalogu repozytorium `.\start.ps1 -SiteDir .\frontend\dist`. Po zmianie źródeł Angulara ponownie wykonaj `npm.cmd --prefix frontend run build`.
 
+Panel `/analiza` udostępnia M1, M2 i M3. Przełącznik **Dane rzeczywiste / Symulacja** oddziela kampanie i publiczne oferty od wyników lokalnego feedu. Konfiguracja kolektorów, kartoteki, kalibracji i bazy jest opisana w [Monitoringu rynku](docs/discovery.md).
+
+[Podgląd online z datami pozyskania](https://pietrek135.github.io/swri-preview/monitoring/) zawiera zapisaną migawkę zweryfikowanych publicznych źródeł i autorskich scenariuszy. Dane migawki są również dostępne w [repozytorium](docs/online/snapshot.json).
+
 Pod jednym adresem lokalnym działają strona SWRI pod `/`, panel InvestWatch pod `/dashboard` i API, m.in. `/health`, `/content` i `/reports/{id}`. Trasa `/admin/login` pokazuje demonstracyjny formularz. Panel i API są dostępne bez uwierzytelniania, a serwer nasłuchuje na `127.0.0.1`.
 
 Parametr `-SiteDir` przyjmuje katalog gotowej kompilacji z plikiem `index.html`. Polecenie `.\start.ps1` bez tego parametru otwiera sam panel pod `/`.

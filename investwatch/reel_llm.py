@@ -219,8 +219,9 @@ class ReelModel:
             raise ValueError("Model wskazał dowód spoza analizowanej części")
         return answer
 
-    def review(self, context, qualification, progress=None):
-        keys = [definition[0] for definition in DEFINITIONS]
+    def review(self, context, qualification, progress=None, *, selected_keys=None):
+        keys = [definition[0] for definition in DEFINITIONS
+                if selected_keys is None or definition[0] in selected_keys]
         groups = [keys[start:start + 7] for start in range(0, len(keys), 7)]
         pages = list(context.pages())
         total = len(groups) * len(pages)

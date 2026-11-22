@@ -22,13 +22,14 @@
         <h1 id="hero-title">Reklamy inwestycyjne <em>pod lupą.</em></h1>
         <p class="intro">SWRI (W rozwinięciu System Weryfikacji Ryzyka Inwestycyjnego) to projekt, który pomoże odnajdywać reklamy inwestycyjne w internecie i oceniać, jak przedstawiają ryzyko. Zaczynamy od rolek i krótkich filmów w mediach społecznościowych.</p>
         <div class="hero-links">
-          <a class="swri-action" href="/skanowanie?start=1" target="_blank" rel="noopener">Przejdź do skanowania internetu</a>
+          <a class="swri-action" href="/analiza">Przejdź do monitoringu rynku</a>
+          <a href="/skanowanie?start=1" target="_blank" rel="noopener">Uruchom skaner symulacji</a>
           <a class="swri-action swri-action-secondary" href="/rolki">Otwórz feed rolek</a>
         </div>
       </div>
 
       <figure class="hero-diagram" aria-labelledby="diagram-title">
-        <figcaption id="diagram-title">Dwa moduły, wspólne źródła</figcaption>
+        <figcaption id="diagram-title">Trzy moduły, wspólne źródła</figcaption>
         <div class="diagram-source">
           <span class="video-icon" aria-hidden="true"></span>
           <p>Rolki, filmy i posty</p>
@@ -46,25 +47,29 @@
   </section>
 
   <div class="live-reports" id="analiza">
-    <div class="shell"><reel-reports /></div>
+    <div class="shell">
+      <p class="eyebrow">Wyniki symulacji</p>
+      <reel-reports />
+    </div>
   </div>
 
   <section class="shell overview" id="opis" tabindex="-1" aria-labelledby="opis-title">
     <p class="eyebrow">Opis projektu</p>
-    <h2 id="opis-title">Sprawdzamy, kto reklamuje inwestycje i jak mówi o ryzyku.</h2>
-    <p>Interesują nas dwa obszary. Pierwszy to reklamy udostępniane przez finfluencerów i inne osoby lub podmioty trzecie. Drugi to sposób, w jaki same firmy inwestycyjne informują o ryzyku w swoich materiałach.</p>
+    <h2 id="opis-title">Sprawdzamy reklamy, ostrzeżenia o ryzyku i oferty doradztwa.</h2>
+    <p>Panel pokazuje kampanie i publikacje pozyskane przez skonfigurowane źródła. Na lokalnym feedzie można przetestować także kryptoreklamy i oferty kierowane bezpośrednio do inwestorów.</p>
   </section>
 
   <section class="modules" id="moduly" tabindex="-1" aria-labelledby="moduly-title">
     <div class="shell">
-      <h2 id="moduly-title">Dwa moduły SWRI</h2>
+      <h2 id="moduly-title">Trzy moduły SWRI</h2>
       <div class="module-grid">
         @for (module of projectModules; track module.id) {
           <article class="module-card">
             <p class="eyebrow">Moduł {{ module.id }}</p>
             <h3>{{ module.title }}</h3>
             <p>{{ module.description }}</p>
-            <p class="module-result"><strong>Planowany wynik</strong>{{ module.result }}</p>
+            <p class="module-result"><strong>Wynik</strong>{{ module.result }}</p>
+            <a [href]="'/analiza?modul=M' + module.id">Otwórz moduł {{ module.id }}</a>
           </article>
         }
       </div>
@@ -83,14 +88,13 @@
     <div class="shell section-layout">
       <div>
         <h2 id="agenci-title">Jak to działa</h2>
-        <p class="section-intro">Naszą odpowiedzią na wyzwanie UKNF jest zespół agentów, którzy oceniają, jak reklamy inwestycyjne przedstawiają ryzyko. Każdy agent odpowiada za określony obszar analizy, taki jak treść finansowa, zgodność z wymogami prawnymi czy czytelność i dostępność ostrzeżeń. Jeden lub kilku osobnych agentów będzie wyszukiwać materiały i przekazywać je pozostałym agentom do oceny.
-</p>
+        <p class="section-intro">Kolektory zapisują metadane i dostępny tekst ze skonfigurowanych źródeł. Silnik analizy łączy źródła dowodów, sprawdza kontekst i kieruje materiał do odpowiedniego modułu.</p>
       </div>
       <div class="workflow">
         <div class="discovery">
           <p class="eyebrow">Wyszukiwanie</p>
           <h3>Agent przegląda materiały</h3>
-          <p>Zbiera adresy rolek, filmów i postów oraz ustala, kto je opublikował. Materiały własne firm inwestycyjnych kieruje do oceny informacji o ryzyku.</p>
+          <p>Zapisuje treści kampanii, oznaczonych współprac i ofert ze wskazanych witryn. W symulacji przegląda rolki przez lokalne API.</p>
         </div>
         <div class="assessment">
           <p class="eyebrow">Ocena materiału</p>
@@ -99,7 +103,7 @@
               <li>{{ area.name }}</li>
             }
           </ul>
-          <p>Każdy z czterech agentów sprawdza inny zestaw kryteriów. Planowany raport zbiera uwagi wraz ze znacznikiem czasu, gdy da się wskazać konkretny moment filmu.</p>
+          <p>Raport wskazuje kryteria, cytaty i etap weryfikacji. Dostępne dowody z filmu mają znaczniki czasu.</p>
         </div>
       </div>
     </div>

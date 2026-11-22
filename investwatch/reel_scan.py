@@ -116,6 +116,7 @@ class Scanner:
         self.registry = registry
         self.model = ReelModel(root.parent)
         self.lock = Lock()
+        self.analysis_lock = Lock()
         self.stopping = Event()
         self.thread = None
         initialize(self.path, """
@@ -316,10 +317,11 @@ class Scanner:
 
         try:
             client.asset(post, asset)
-            rows, coverage, limits = collect(asset, post, work, progress)
-            progress("CONTEXT", 82)
-            return classify(post, rows, coverage, limits, self.registry(), client.profile(post), source,
-                            progress=progress, model=self.model)
+            with self.analysis_lock:
+                rows, coverage, limits = collect(asset, post, work, progress)
+                progress("CONTEXT", 82)
+                return classify(post, rows, coverage, limits, self.registry(), client.profile(post), source,
+                                progress=progress, model=self.model)
         except Exception as error:
             # Keep failures in the review trail. Never label these as irrelevant.
             logger.exception("Reel analysis failed for %s", post["id"])

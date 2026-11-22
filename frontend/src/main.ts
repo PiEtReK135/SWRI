@@ -4,9 +4,12 @@ import { App } from './app/app';
 import { Login } from './app/login/login';
 import { ReelFeed } from './app/reels/feed';
 import { ScanPage } from './app/reels/scan';
+import { Workspace } from './app/workspace/workspace';
 
 const pathname = window.location.pathname.replace(/\/$/, '');
-const pages = new Map<string, Type<unknown>>([['/admin/login', Login], ['/rolki', ReelFeed], ['/skanowanie', ScanPage]]);
+const pages = new Map<string, Type<unknown>>([
+  ['/admin/login', Login], ['/rolki', ReelFeed], ['/skanowanie', ScanPage], ['/analiza', Workspace],
+]);
 const page = pages.get(pathname) ?? App;
 
 bootstrapApplication(page).catch((error: unknown) => console.error(error));

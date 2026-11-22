@@ -6,6 +6,7 @@ import io
 import json
 import subprocess
 from pathlib import Path
+from typing import Literal
 import uuid
 
 from fastapi import File, Form, HTTPException, Request, UploadFile
@@ -33,6 +34,9 @@ class RegistryEntry(BaseModel):
     name: str = Field(min_length=1, max_length=250)
     aliases: list[str] = Field(default_factory=list, max_length=30)
     publisher_url: str = ""
+    publisher_ids: list[str] = Field(default_factory=list, max_length=30)
+    advisory_authorized: bool | None = None
+    market_presence: Literal["PL_DOMESTIC", "PL_BRANCH", "CROSS_BORDER", "UNSPECIFIED"] = "UNSPECIFIED"
     registry_url: str
     registry_checked_at: str
     in_scope: bool = False
