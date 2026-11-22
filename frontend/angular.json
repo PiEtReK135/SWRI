@@ -18,8 +18,9 @@
             "index": "src/index.html",
             "tsConfig": "tsconfig.json",
             "outputPath": { "base": "dist", "browser": "" },
+            "assets": [{ "glob": "**/*", "input": "public" }],
             "styles": ["src/styles.css"],
-            "optimization": true,
+            "optimization": { "styles": { "inlineCritical": false } },
             "outputHashing": "all"
           },
           "configurations": {

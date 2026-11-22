@@ -1,34 +1,29 @@
-:host { display: block; min-height: 100dvh; background: #f2f6ff; }
-.scan-nav { display: flex; justify-content: space-between; align-items: center; gap: 1rem; background: white;
-  padding: 1rem clamp(1rem, 5vw, 4rem); border-bottom: 1px solid var(--line); }
-.scan-nav a { color: var(--blue-dark); font-weight: 680; text-underline-offset: .2em; }
-.scan-brand { display: inline-flex; align-items: center; gap: .45rem; text-decoration: none; }
-.scan-brand span { width: 1rem; height: 1rem; background: var(--action-gradient); border-radius: .25rem; }
-.scan-main { width: min(69rem, calc(100% - 2rem)); margin: auto; padding: 1.75rem 0 3rem; }
-.scan-hero { padding: clamp(1rem, 4vw, 2rem); margin-bottom: 2rem; border: 1px solid #bccff0; border-radius: .8rem;
-  background: radial-gradient(ellipse at 100% 0, #d3f4ed, transparent 55%), linear-gradient(135deg, white, #e4eeff); }
+:host { display: block; min-height: 100dvh; background: var(--surface-gradient); }
+.scan-main { width: var(--shell-width); margin-inline: auto; padding-block: clamp(2rem, 5vw, 4rem); }
+.scan-hero { padding: clamp(1rem, 4vw, 2rem); margin-bottom: 2rem; border: 1px solid var(--line); border-radius: .8rem;
+  background: radial-gradient(ellipse at 100% 0, var(--teal-wash), transparent 55%), linear-gradient(135deg, var(--surface), var(--blue-wash)); box-shadow: var(--shadow); }
 .scan-heading { display: flex; justify-content: space-between; align-items: start; gap: .75rem; }
 .scan-heading h1 { font-size: clamp(2.1rem, 5vw, 3.65rem); letter-spacing: -.06em; line-height: 1.08; }
 .scan-heading p { margin-top: .4rem; color: var(--muted); }
-.scan-status { color: #074f47; background: #e2f6f1; border: 1px solid #97d1c6; border-radius: .35rem;
-  padding: .35rem .55rem; font-size: .9rem; font-weight: 700; white-space: nowrap; }
+.scan-status { color: var(--teal-dark); background: var(--teal-light); border: 1px solid var(--teal); border-radius: .35rem;
+  padding: .35rem .55rem; font-size: .9rem; font-weight: 700; text-align: center; }
 .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; margin: 1rem 0; }
-.metrics > div { padding: .6rem .75rem; border: 1px solid var(--line); background: #ffffffc9; border-radius: .45rem; }
+.metrics > div { padding: .6rem .75rem; border: 1px solid var(--line); background: var(--surface); border-radius: .45rem; }
 .metrics strong, .metrics span { display: block; }
 .metrics strong { font-size: 1.75rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .metrics span { font-size: .9rem; color: var(--muted); }
-button { background: var(--action-gradient); color: white; border: 0; border-radius: .4rem; cursor: pointer;
+button { background: var(--action-gradient); color: var(--action-ink); border: 1px solid transparent; border-radius: .4rem; cursor: pointer;
   font: inherit; font-weight: 650; padding: .55rem .85rem; }
-button:hover { background: var(--action-gradient-hover); }
+button:enabled:hover { background: var(--action-gradient-hover); }
 button:disabled { opacity: .65; cursor: default; }
 .scan-current, .scan-error { margin-bottom: .55rem; }
 .reel-progress { margin: .85rem 0 1rem; }
 .progress-label { display: flex; justify-content: space-between; gap: 1rem; font-size: .95rem; }
 .reel-progress progress { width: 100%; height: .65rem; accent-color: var(--blue-dark); }
 .scan-actions, .session-row, .session-row > div:last-child { display: flex; gap: .7rem; flex-wrap: wrap; }
-.secondary-scan { background: white; color: var(--blue-dark); box-shadow: inset 0 0 0 1px #a9bff0; }
-.secondary-scan:hover { background: #e9f0ff; }
-.reset-confirm, .session-history { border: 1px solid var(--line); background: white; border-radius: .6rem; padding: 1rem; }
+.secondary-scan { background: var(--soft-action); color: var(--blue-dark); border-color: var(--line); }
+.secondary-scan:enabled:hover { background: var(--soft-action-hover); }
+.reset-confirm, .session-history { border: 1px solid var(--line); background: var(--surface); border-radius: .6rem; padding: 1rem; }
 .reset-confirm { margin-top: .8rem; }
 .reset-confirm p { margin-bottom: .5rem; }
 .reset-confirm button + button { margin-left: .55rem; }
@@ -36,7 +31,7 @@ button:disabled { opacity: .65; cursor: default; }
 .session-row { justify-content: space-between; padding: .6rem 0; border-bottom: 1px solid var(--line); }
 .session-row a { color: var(--blue-dark); text-underline-offset: .2em; }
 .session-row p { color: var(--muted); }
-.scan-error { color: #902d20; }
+.scan-error { color: var(--error); }
 .strategy { margin-top: .9rem; }
 .strategy summary { font-weight: 690; cursor: pointer; }
 .strategy p { margin-top: .35rem; color: var(--muted); }

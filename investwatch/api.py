@@ -208,4 +208,7 @@ def create_app(root=None):
     else:
         app.add_api_route("/", dashboard, include_in_schema=False)
         app.add_api_route("/app.js", javascript, include_in_schema=False)
+        shared_assets = WEB.parents[1] / "frontend" / "public"
+        if shared_assets.is_dir():
+            app.mount("/", StaticFiles(directory=shared_assets), name="shared-appearance")
     return app

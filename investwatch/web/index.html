@@ -4,12 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Panel analityczny | SWRI</title>
+  <meta name="theme-color" content="#211946">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
   <style>
     :root {
       color-scheme: light;
-      font: 100%/1.55 system-ui, -apple-system, sans-serif;
-      color: #0b1a38;
-      background: #f8fbff;
+      font: var(--swri-font-size, 100%)/1.55 system-ui, -apple-system, sans-serif;
+      color: var(--ink);
+      background: var(--page, #f8fbff);
       --ink: #0b1a38;
       --muted: #465879;
       --blue: #174cda;
@@ -25,16 +29,16 @@
     *, *::before, *::after { box-sizing: border-box; }
     body { min-height: 100vh; margin: 0; background: var(--surface-gradient); }
     a { color: var(--blue-dark); font-weight: 650; text-underline-offset: .22em; }
-    :focus-visible { outline: 3px solid var(--blue); outline-offset: 4px; }
+    :focus-visible { outline: 3px solid var(--focus, var(--blue)); outline-offset: 4px; }
     .shell { width: var(--shell-width); margin-inline: auto; }
 
     .site-header {
-      border-bottom: 1px solid #39377b;
+      border-bottom: 1px solid var(--header-line, #39377b);
       background: var(--header-gradient);
-      color: #fff;
+      color: var(--header-ink, #fff);
     }
 
-    .site-header :focus-visible { outline-color: #c5d1ff; }
+    .site-header :focus-visible { outline-color: var(--header-focus, #c5d1ff); }
 
     .header-inner {
       display: flex;
@@ -49,7 +53,7 @@
       display: inline-flex;
       align-items: center;
       gap: .65rem;
-      color: #fff;
+      color: var(--header-ink, #fff);
       font-size: 1.42rem;
       font-weight: 820;
       letter-spacing: -.07em;
@@ -81,13 +85,13 @@
       padding: .5rem .95rem;
       border: 1px solid #8997d7;
       border-radius: .45rem;
-      background: #f1f3ff;
+      background: linear-gradient(115deg, #e8e5ff, #d9f3ee);
       color: #27205e;
       font-size: .9rem;
       text-decoration: none;
     }
 
-    .home-link:hover { border-color: #bcefe9; background: #dbf4f0; }
+    .home-link:hover { border-color: #bcefe9; background: linear-gradient(115deg, #d9ddff, #bcefe9); }
 
     main { padding-block: clamp(2rem, 4.8vw, 4.15rem); }
     .page-intro { margin-bottom: clamp(1.4rem, 3.5vw, 2.5rem); }
@@ -116,8 +120,8 @@
       padding: clamp(1rem, 2.5vw, 1.55rem);
       border: 1px solid var(--line);
       border-radius: .9rem;
-      background: #fff;
-      box-shadow: 0 .55rem 1.6rem #233b7510;
+      background: var(--surface, #fff);
+      box-shadow: var(--shadow, 0 .55rem 1.6rem #233b7510);
     }
 
     #tools { grid-area: tools; display: grid; gap: 1rem; }
@@ -132,9 +136,9 @@
       min-width: 0;
       margin-top: .2rem;
       padding: .48rem .6rem;
-      border: 1px solid #a4b3d2;
+      border: 1px solid var(--control-line, #a4b3d2);
       border-radius: .4rem;
-      background: #f8faff;
+      background: var(--field, #f8faff);
       color: var(--ink);
       font-size: .92rem;
     }
@@ -144,21 +148,21 @@
     input[type="file"]::file-selector-button { margin-right: .4rem; }
     textarea { min-height: 4.2rem; resize: vertical; }
 
-    button {
+    main button {
       padding: .5rem .8rem;
-      border: 1px solid var(--line);
+      border: 1px solid var(--control-line, var(--line));
       border-radius: .45rem;
-      background: #eef3ff;
+      background: var(--soft-action, linear-gradient(120deg, #edf1ff, #e5f6f2));
       color: var(--blue-dark);
       font-size: .9rem;
       font-weight: 700;
       cursor: pointer;
     }
 
-    button:enabled:hover { border-color: #9aafe4; background: #e2ebff; }
+    main button:enabled:hover { background: var(--soft-action-hover, linear-gradient(120deg, #dbe6ff, #d4efe8)); }
     button:disabled { cursor: default; opacity: .55; }
-    #upload > button { margin-top: .25rem; border-color: transparent; background: var(--action-gradient); color: #fff; }
-    #upload > button:enabled:hover { background: linear-gradient(115deg, #12399f, #074d55); }
+    #upload > button { margin-top: .25rem; border-color: transparent; background: var(--action-gradient); color: var(--action-ink, #fff); }
+    #upload > button:enabled:hover { background: var(--action-gradient-hover, linear-gradient(115deg, #12399f, #074d55)); }
     #status:empty { display: none; }
     #tools section > button { margin: .25rem .35rem .45rem 0; }
     #tools form { margin-top: .75rem; padding-top: .75rem; border-top: 1px solid var(--line); }
@@ -167,7 +171,7 @@
     .table-scroll { overflow-x: auto; }
     table { width: 100%; min-width: 33rem; border-collapse: collapse; text-align: left; }
     th, td { padding: .65rem .55rem; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
-    th { background: #eef2ff; color: #27205e; font-size: .88rem; }
+    th { background: var(--blue-light, #eef2ff); color: var(--blue-dark); font-size: .88rem; }
     td { font-size: .9rem; }
     td:first-child { min-width: 9rem; }
 
@@ -187,14 +191,19 @@
       }
     }
   </style>
+  <link rel="stylesheet" href="/swri-theme.css">
+  <script src="/swri-appearance.js"></script>
 </head>
 <body>
-  <header class="site-header">
-    <div class="shell header-inner">
+  <header class="site-header swri-header">
+    <div class="shell header-inner swri-header-inner">
       <a class="wordmark" href="/" aria-label="SWRI, strona główna">
         <span class="brand-mark" aria-hidden="true"></span>SWRI
       </a>
-      <a class="home-link" href="/">Strona główna</a>
+      <nav class="swri-header-nav" aria-label="Nawigacja panelu">
+        <a class="home-link swri-action" href="/">Strona główna</a>
+      </nav>
+      <swri-appearance></swri-appearance>
     </div>
   </header>
 

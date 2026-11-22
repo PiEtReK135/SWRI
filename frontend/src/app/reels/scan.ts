@@ -1,9 +1,10 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import { CUSTOM_ELEMENTS_SCHEMA, ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { ScanSession, ScanStatus, dateLabel, request } from './reel-api';
 import { ReelReports } from './reports';
 
 @Component({
   selector: 'app-root',
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   imports: [ReelReports],
   templateUrl: './scan.html',
   styleUrl: './scan.css',
