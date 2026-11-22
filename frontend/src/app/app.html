@@ -22,10 +22,15 @@
         <h1 id="hero-title">Reklamy inwestycyjne <em>pod lupą.</em></h1>
         <p class="intro">SWRI (W rozwinięciu System Weryfikacji Ryzyka Inwestycyjnego) to projekt, który pomoże odnajdywać reklamy inwestycyjne w internecie i oceniać, jak przedstawiają ryzyko. Zaczynamy od rolek i krótkich filmów w mediach społecznościowych.</p>
         <div class="hero-links">
-          <a class="swri-action" href="/analiza">Przejdź do monitoringu rynku</a>
-          <a href="/skanowanie?start=1" target="_blank" rel="noopener">Uruchom skaner symulacji</a>
-          <a class="swri-action swri-action-secondary" href="/rolki">Otwórz feed rolek</a>
+          <a class="swri-action" [href]="workspaceLink()">Przejdź do monitoringu rynku</a>
+          @if (!published) {
+            <a href="/skanowanie?start=1" target="_blank" rel="noopener">Uruchom skaner symulacji</a>
+            <a class="swri-action swri-action-secondary" href="/rolki">Otwórz feed rolek</a>
+          }
         </div>
+        @if (published) {
+          <p class="archive-notice">Podgląd zapisanych wyników. Nowe analizy wymagają lokalnego uruchomienia SWRI i konfiguracji źródeł oraz modeli.</p>
+        }
       </div>
 
       <figure class="hero-diagram" aria-labelledby="diagram-title">
@@ -48,8 +53,17 @@
 
   <div class="live-reports" id="analiza">
     <div class="shell">
-      <p class="eyebrow">Wyniki symulacji</p>
-      <reel-reports />
+      <h2>Raporty z monitoringu</h2>
+      <div class="report-links">
+        <a class="swri-action" [href]="workspaceLink()">Dane rzeczywiste</a>
+        <a class="swri-action swri-action-secondary" [href]="workspaceLink(true)">Przykłady symulacji</a>
+        @if (published) {
+          <a href="snapshot.json" download>Pobierz dane JSON</a>
+        }
+      </div>
+      @if (!published) {
+        <reel-reports />
+      }
     </div>
   </div>
 
@@ -69,7 +83,7 @@
             <h3>{{ module.title }}</h3>
             <p>{{ module.description }}</p>
             <p class="module-result"><strong>Wynik</strong>{{ module.result }}</p>
-            <a [href]="'/analiza?modul=M' + module.id">Otwórz moduł {{ module.id }}</a>
+            <a [href]="workspaceLink(false, 'M' + module.id)">Otwórz moduł {{ module.id }}</a>
           </article>
         }
       </div>
@@ -146,7 +160,8 @@
     <a class="swri-wordmark" href="#start" aria-label="SWRI — wróć na początek strony">
       <span class="swri-brand-mark" aria-hidden="true"></span>SWRI
     </a>
-    <p>Projekt konkursowy · HackNation 2026<br>
-      <a href="/admin/login">Logowanie demonstracyjne</a></p>
+    <p>Projekt konkursowy · HackNation 2026
+      @if (!published) { <br><a href="/admin/login">Logowanie demonstracyjne</a> }
+    </p>
   </div>
 </footer>

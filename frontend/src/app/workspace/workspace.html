@@ -1,10 +1,12 @@
 <header class="swri-header">
   <div class="swri-header-inner">
-    <a class="swri-wordmark" href="/" aria-label="SWRI, strona główna"><span class="swri-brand-mark" aria-hidden="true"></span>SWRI</a>
-    <nav class="swri-header-nav" aria-label="Nawigacja panelu">
-      <a href="/skanowanie">Skaner symulacji</a>
-      <a href="/dashboard">Import i raporty</a>
-    </nav>
+    <a class="swri-wordmark" [href]="published ? './' : '/'" aria-label="SWRI, strona główna"><span class="swri-brand-mark" aria-hidden="true"></span>SWRI</a>
+    @if (!published) {
+      <nav class="swri-header-nav" aria-label="Nawigacja panelu">
+        <a href="/skanowanie">Skaner symulacji</a>
+        <a href="/dashboard">Import i raporty</a>
+      </nav>
+    }
     <swri-appearance></swri-appearance>
   </div>
 </header>
@@ -26,7 +28,14 @@
   </nav>
   <p class="message" role="alert" [hidden]="!error()">{{ error() }}</p>
   <p class="message" role="status" [hidden]="!notice()">{{ notice() }}</p>
-  @if (mode() === 'REAL') {
+  @if (published) {
+    <aside class="panel">
+      <strong>Podgląd zapisanych wyników</strong>
+      <p>Nowe analizy wymagają lokalnego uruchomienia SWRI i konfiguracji źródeł oraz modeli.</p>
+      @if (snapshotTime()) { <p>Stan danych z <time [attr.datetime]="snapshotTime()">{{ timestamp(snapshotTime()) }}</time> · czas polski</p> }
+      @if (mode() === 'SIMULATION') { <p>Autorskie scenariusze SWRI. Opisane oferty i postacie są fikcyjne.</p> }
+    </aside>
+  } @else if (mode() === 'REAL') {
     <details class="panel sources">
       <summary>Źródła i kolejka</summary>
       @if (queue(); as state) {
@@ -104,7 +113,7 @@
       <select #sourceControl [value]="source()" (change)="source.set(sourceControl.value); filter()">
         <option value="">Wszystkie źródła</option>
         @if (mode() === 'REAL') {
-          @for (key of ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'WEB', 'META']; track key) {
+          @for (key of (published ? ['WEB'] : ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'WEB', 'META']); track key) {
             <option [value]="key">{{ sources[key] }}</option>
           }
         } @else { <option value="LOCAL_FEED">Lokalny feed</option> }
@@ -118,9 +127,12 @@
     </label>
     <label>Data od<input #start type="date" [value]="since()" (change)="since.set(start.value); filter()"></label>
     <label>Data do<input #end type="date" [value]="until()" (change)="until.set(end.value); filter()"></label>
-    <label class="check"><input #above type="checkbox" [checked]="onlyAbove()" (change)="onlyAbove.set(above.checked); filter()"> Od progu selekcji</label>
+    @if (!published) {
+      <label class="check"><input #above type="checkbox" [checked]="onlyAbove()" (change)="onlyAbove.set(above.checked); filter()"> Od progu selekcji</label>
+    }
   </section>
   @if (!loading() && page(); as data) {
+    @if (!published) {
     <section class="overview" aria-label="Wskaźniki i kalibracja">
       <div class="panel trend">
         <div class="section-title"><h2>Trend · ostatnie 14 dni</h2><span>{{ data.above_threshold }} od progu</span></div>
@@ -146,16 +158,18 @@
         <button type="button" [disabled]="pending() || threshold() === data.threshold" (click)="saveThreshold()">Zapisz próg</button>
       </div>
     </section>
+    }
     <section class="panel results" aria-labelledby="results-title">
       <div class="section-title">
         <h2 id="results-title">Materiały <span>{{ data.total }}</span></h2>
-        @if (data.total) { <a [href]="exportUrl()">Eksportuj CSV</a> }
+        @if (published) { <a href="snapshot.json" download>Pobierz dane JSON</a> }
+        @else if (data.total) { <a [href]="exportUrl()">Eksportuj CSV</a> }
       </div>
       @if (data.items.length) {
         <div class="table-wrap">
           <table>
             <thead><tr><th scope="col">Materiał i źródło</th><th scope="col">Firma / publikujący</th><th scope="col">Moduły</th>
-              <th scope="col">Priorytet</th><th scope="col">Status</th><th scope="col">Data</th></tr></thead>
+              <th scope="col">Priorytet</th>@if (!published) { <th scope="col">Status</th> }<th scope="col">{{ published ? 'Pierwszy zapis' : 'Data' }}</th></tr></thead>
             <tbody>
               @for (item of data.items; track item.id) {
                 <tr [class.selected]="selected()?.id === item.id">
@@ -164,7 +178,7 @@
                   <td>@for (company of item.companies; track company.name) { <div>{{ company.name }}</div> }<small>{{ item.actor || 'Publikujący nieustalony' }}</small></td>
                   <td>{{ item.modules.join(', ') || 'Do kwalifikacji' }}</td>
                   <td><span class="risk" [attr.data-risk]="item.risk">{{ item.risk ? risks[item.risk] + ' · ' + item.score : 'Brak punktacji' }}</span></td>
-                  <td>{{ reviews[item.review] }}</td>
+                  @if (!published) { <td>{{ reviews[item.review] }}</td> }
                   <td>{{ item.published || timestamp(item.first_seen || item.last_seen) }}</td>
                 </tr>
               }
@@ -179,7 +193,11 @@
           </div>
         }
       } @else {
-        <p>{{ mode() === 'REAL' ? 'Brak wyników. Sprawdź konfigurację źródeł lub zmień filtry.' : 'Brak wyników dla tych filtrów. Uruchom skaner symulacji, aby zebrać materiały.' }}</p>
+        @if (published) {
+          <p>Brak zapisanych wyników dla wybranych filtrów.</p>
+        } @else {
+          <p>{{ mode() === 'REAL' ? 'Brak wyników. Sprawdź konfigurację źródeł lub zmień filtry.' : 'Brak wyników dla tych filtrów. Uruchom skaner symulacji, aby zebrać materiały.' }}</p>
+        }
       }
     </section>
   } @else if (loading()) {
@@ -195,7 +213,9 @@
         <dt>Publikujący</dt><dd>{{ item.actor || 'Nieustalony' }}</dd>
         @if (item.payer) { <dt>Podmiot finansujący</dt><dd>{{ item.payer }}</dd> }
         @if (item.label) { <dt>Oznaczenie źródłowe</dt><dd>{{ item.label }}</dd> }
-        @if (item.last_seen) { <dt>Ostatnie pozyskanie</dt><dd>{{ timestamp(item.last_seen) }}</dd> }
+        @if (published && item.first_seen) { <dt>Pierwszy zapis</dt><dd>{{ timestamp(item.first_seen) }}</dd> }
+        @if (item.analyzed_at) { <dt>Analiza lokalna</dt><dd>{{ timestamp(item.analyzed_at) }}</dd> }
+        @else if (item.last_seen) { <dt>Ostatnie pozyskanie</dt><dd>{{ timestamp(item.last_seen) }}</dd> }
         @if (item.language) { <dt>Język</dt><dd>{{ item.language === 'pl' ? 'Polski' : item.language === 'foreign' ? 'Inny' : 'Nieustalony' }}</dd> }
         @if (item.authorization) { <dt>Powiązanie z kartoteką</dt><dd>{{ item.authorization === 'MATCHED_IN_SCOPE' ? 'Zweryfikowane konto lub witryna' : 'Konto lub witryna wymaga potwierdzenia' }}</dd> }
       </dl>

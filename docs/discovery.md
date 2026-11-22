@@ -67,4 +67,12 @@ Dostęp lokalny po `127.0.0.1` wykorzystuje systemową kontrolę dostępu do kom
 
 Skrypt `scripts/seed_module_examples.py` publikuje autorskie materiały ćwiczeniowe w istniejącym lokalnym feedzie i tworzy raporty przy użyciu skanera. Na Windowsie wykorzystuje FFmpeg, Tesseract i głos Microsoft Paulina dla trzech klipów. Instalacja `requirements-dev.txt` udostępnia używany przez skrypt klient HTTP. Scenariusze pozostają w trybie **Symulacja**. Ich raporty można ponownie wygenerować po resecie skanera.
 
-`scripts/build_public_snapshot.py` tworzy `docs/online/index.html` i `docs/online/snapshot.json` z zakończonych analiz. Do plików trafiają wybrane publiczne witryny i scenariusze utworzone przez skrypt. Podgląd wyświetla pierwszy zapis, ostatnią zapisaną obserwację lub zakończenie analizy w strefie Europe/Warsaw. Są to czasy utrwalone w SQLite. [Podgląd na GitHub Pages](https://pietrek135.github.io/swri-preview/monitoring/)
+`scripts/build_public_snapshot.py` tworzy `docs/online/snapshot.json` z zakończonych analiz. Do migawki trafiają wybrane publiczne witryny i autorskie scenariusze SWRI. Podgląd wyświetla pierwszy zapis, ostatnie pozyskanie lub zakończenie analizy w strefie Europe/Warsaw. Są to czasy zapisane w SQLite.
+
+Z katalogu głównego repozytorium zbuduj publiczny wariant interfejsu.
+
+```powershell
+npm.cmd --prefix frontend run build -- --configuration published --base-href /swri-preview/ --output-path ../data/validation/pages-build
+```
+
+Przenieś pliki kompilacji i `docs/online/snapshot.json` do katalogu głównego repozytorium `PiEtReK135/swri-preview`, z którego GitHub Pages serwuje podgląd. Zachowaj plik `.nojekyll` i przekierowanie pod `monitoring/`. [Podgląd na GitHub Pages](https://pietrek135.github.io/swri-preview/)

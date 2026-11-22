@@ -87,6 +87,16 @@ h1 em { display: block; width: fit-content; color: var(--blue-dark); font-style:
   margin-top: 1.75rem;
 }
 
+.report-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .65rem 1rem;
+  margin-block: 1rem;
+}
+
+.archive-notice { margin-top: .85rem; color: var(--muted); }
+
 .hero-diagram {
   padding: clamp(1.1rem, 3vw, 2.2rem);
   border: 1px solid #2347a0;

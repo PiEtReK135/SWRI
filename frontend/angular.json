@@ -24,6 +24,11 @@
             "outputHashing": "all"
           },
           "configurations": {
+            "published": {
+              "fileReplacements": [
+                { "replace": "src/app/published.ts", "with": "src/app/published.pages.ts" }
+              ]
+            },
             "development": {
               "optimization": false,
               "sourceMap": true,

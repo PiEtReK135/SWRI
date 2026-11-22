@@ -1,5 +1,6 @@
 import { CUSTOM_ELEMENTS_SCHEMA, ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { jsonPost, request } from '../reels/reel-api';
+import { published } from '../published';
 
 type Mode = 'REAL' | 'SIMULATION';
 interface Finding { module: string | null; text: string; points: number; rule_id?: string; quotes: string[] }
@@ -12,6 +13,7 @@ interface Rule { rule_id: string; title: string; status: string; why: string; po
 interface Material {
   id: string; source: string; kind: string; actor: string; title: string; url: string; published: string;
   first_seen?: string; last_seen: string; modules: string[]; review: string; operator?: string; note?: string;
+  analyzed_at?: string;
   score: number; risk: string | null; findings: Finding[]; companies: Company[]; platforms?: string[];
   label?: string; payer?: string; authorization?: string; language?: string; inference?: { qualification: string; uknf: string };
   limits?: string[]; limitations?: string[]; timeline?: Proof[]; rules?: Rule[];
@@ -28,12 +30,18 @@ interface Queue {
   sources: { id: string; name: string; status: string; ready: boolean }[];
   jobs: { id: number; source: string; target: string; status: string; records: number; error: string | null }[];
 }
+interface PublishedSnapshot {
+  generated_at: string;
+  records: (Material & { mode: Mode })[];
+}
 
 @Component({
   selector: 'app-root', schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './workspace.html', styleUrl: './workspace.css', changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Workspace {
+  protected readonly published = published;
+  protected readonly snapshotTime = signal('');
   protected readonly modules = [
     { id: '', title: 'Przegląd', detail: 'Wszystkie materiały' },
     { id: 'M1', title: 'Monitoring reklam', detail: 'Finfluencerzy i podmioty trzecie' },
@@ -81,7 +89,10 @@ export class Workspace {
   protected readonly threshold = signal(55);
   protected readonly pageSize = 20;
   protected readonly offset = signal(0);
-  protected readonly date = new Intl.DateTimeFormat('pl', { dateStyle: 'medium', timeStyle: 'short' });
+  protected readonly date = new Intl.DateTimeFormat('pl', {
+    dateStyle: 'medium', timeStyle: 'medium', timeZone: 'Europe/Warsaw',
+  });
+  private snapshot?: PublishedSnapshot;
   private generation = 0;
   private detailGeneration = 0;
   private socket?: WebSocket;
@@ -92,6 +103,7 @@ export class Workspace {
   constructor() {
     document.title = 'Analiza rynku | SWRI';
     void this.refresh();
+    if (published) return;
     void this.loadRegistry();
     this.connect();
     const timer = window.setInterval(() => {
@@ -141,6 +153,11 @@ export class Workspace {
     query.set('offset', String(this.offset()));
     query.set('limit', String(this.pageSize));
     try {
+      if (published) {
+        this.snapshot ??= await request<PublishedSnapshot>('snapshot.json');
+        if (generation === this.generation) this.showSnapshot(this.snapshot);
+        return;
+      }
       const [page, queue] = await Promise.all([
         request<CasePage>('/api/workspace/cases?' + query), request<Queue>('/api/workspace/sources'),
       ]);
@@ -158,6 +175,23 @@ export class Workspace {
     } finally {
       if (generation === this.generation) this.loading.set(false);
     }
+  }
+
+  private showSnapshot(snapshot: PublishedSnapshot): void {
+    this.snapshotTime.set(snapshot.generated_at);
+    const items = snapshot.records.filter(item => {
+      const day = (item.published || item.first_seen || item.last_seen).slice(0, 10);
+      return item.mode === this.mode() &&
+        (!this.module() || item.modules.includes(this.module())) &&
+        (!this.source() || item.source === this.source()) &&
+        (!this.risk() || item.risk === this.risk()) &&
+        (!this.since() || day >= this.since()) &&
+        (!this.until() || day <= this.until());
+    }).sort((left, right) => right.score - left.score || right.last_seen.localeCompare(left.last_seen));
+    this.page.set({
+      items: items.slice(this.offset(), this.offset() + this.pageSize), total: items.length,
+      threshold: 0, above_threshold: 0, groups: {}, trend: [], calibration: { tp: 0, fp: 0, fn: 0, tn: 0 },
+    });
   }
 
   private filters(): URLSearchParams {
@@ -205,6 +239,7 @@ export class Workspace {
   protected async open(item: Material): Promise<void> {
     const generation = ++this.detailGeneration;
     this.detailBusy(item);
+    if (published) return;
     try {
       const detail = await request<Material>(this.endpoint(item));
       if (generation === this.detailGeneration) this.selected.set(detail);

@@ -4,7 +4,7 @@ h1 { font-size: clamp(2.1rem, 4.8vw, 3.8rem); line-height: 1.12; letter-spacing:
 h2 { font-size: clamp(1.25rem, 2.7vw, 1.65rem); line-height: 1.2; letter-spacing: -.033em; }
 h3 { font-size: 1.1rem; margin-top: 1rem; }
 p, small, dt { color: var(--muted); }
-a { color: var(--blue-dark); font-weight: 650; text-underline-offset: .18em; }
+a:where(:not(.swri-action, .swri-wordmark)) { color: var(--blue-dark); font-weight: 650; text-underline-offset: .18em; }
 .intro, .section-title, .queue-controls, .simulation, .pagination, .detail-links {
   display: flex; align-items: center; justify-content: space-between; gap: .8rem; flex-wrap: wrap;
 }
@@ -12,7 +12,8 @@ a { color: var(--blue-dark); font-weight: 650; text-underline-offset: .18em; }
 .intro p, .section-title + p { margin-top: .35rem; }
 .switch, .coverage, .calibration-counts { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; }
 .modules { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .55rem; margin-bottom: .9rem; }
-.modules button { text-align: left; padding: .8rem; background: var(--surface); }
+.modules button { text-align: left; padding: .8rem; }
+.modules button[aria-pressed="false"]:not(:hover) { background: var(--surface); }
 .modules small, td small { display: block; margin-top: .16rem; }
 button, input, select, textarea { font: inherit; color: var(--ink); max-width: 100%; }
 button, input:not([type="range"], [type="checkbox"]), select, textarea {
