@@ -55,8 +55,8 @@
     <div class="shell">
       <h2>Raporty z monitoringu</h2>
       <div class="report-links">
-        <a class="swri-action" [href]="workspaceLink()">Dane rzeczywiste</a>
-        <a class="swri-action swri-action-secondary" [href]="workspaceLink(true)">Przykłady symulacji</a>
+        <a class="swri-action" [href]="workspaceLink()">Przykłady symulacji</a>
+        <a class="swri-action swri-action-secondary" [href]="workspaceLink('REAL')">Dane rzeczywiste</a>
         @if (published) {
           <a href="snapshot.json" download>Pobierz dane JSON</a>
         }
@@ -104,7 +104,7 @@
             <h3>{{ module.title }}</h3>
             <p>{{ module.description }}</p>
             <p class="module-result"><strong>Wynik</strong>{{ module.result }}</p>
-            <a [href]="workspaceLink(false, 'M' + module.id)">Otwórz moduł {{ module.id }}</a>
+            <a [href]="workspaceLink('SIMULATION', 'M' + module.id)">Otwórz moduł {{ module.id }}</a>
           </article>
         }
       </div>

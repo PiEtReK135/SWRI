@@ -25,7 +25,7 @@ Jeśli npm zgłasza `UNABLE_TO_VERIFY_LEAF_SIGNATURE`, ustaw w tym oknie PowerSh
 
 Po restarcie uruchom z katalogu repozytorium `.\start.ps1 -SiteDir .\frontend\dist`. Po zmianie źródeł Angulara ponownie wykonaj `npm.cmd --prefix frontend run build`.
 
-Panel `/analiza` udostępnia M1, M2 i M3. Przełącznik **Dane rzeczywiste / Symulacja** oddziela kampanie i publiczne oferty od wyników lokalnego feedu. Konfiguracja kolektorów, kartoteki, kalibracji i bazy jest opisana w [Monitoringu rynku](docs/discovery.md).
+Panel `/analiza` otwiera domyślnie symulację z modułami M1, M2 i M3. Przycisk **Dane rzeczywiste** przełącza na zebrane kampanie i publiczne oferty. Konfiguracja kolektorów, kartoteki, kalibracji i bazy jest opisana w [Monitoringu rynku](docs/discovery.md).
 
 [Podgląd na GitHub Pages](https://pietrek135.github.io/swri-preview/) używa tego samego interfejsu co wersja lokalna i pokazuje zapisane raporty, daty pozyskania oraz autorskie scenariusze. Nowe analizy wymagają lokalnego uruchomienia SWRI i konfiguracji źródeł oraz modeli. Dane publikacji są dostępne w [migawce JSON](docs/online/snapshot.json).
 

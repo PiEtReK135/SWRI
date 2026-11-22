@@ -14,8 +14,8 @@
   <div class="intro">
     <div><h1>Analiza rynku</h1><p>Monitoring reklam, informacji o ryzyku i ofert doradztwa inwestycyjnego.</p></div>
     <div class="switch" aria-label="Tryb danych">
-      <button type="button" [attr.aria-pressed]="mode() === 'REAL'" (click)="switchMode('REAL')">Dane rzeczywiste</button>
       <button type="button" [attr.aria-pressed]="mode() === 'SIMULATION'" (click)="switchMode('SIMULATION')">Symulacja</button>
+      <button type="button" [attr.aria-pressed]="mode() === 'REAL'" (click)="switchMode('REAL')">Dane rzeczywiste</button>
     </div>
   </div>
   <nav class="modules" aria-label="Moduły analityczne">

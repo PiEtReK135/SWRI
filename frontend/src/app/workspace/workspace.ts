@@ -2,8 +2,9 @@ import { CUSTOM_ELEMENTS_SCHEMA, ChangeDetectionStrategy, Component, DestroyRef,
 import { jsonPost, request } from '../reels/reel-api';
 import { published } from '../published';
 import { criteriaShare, reviewAreas } from '../review-criteria';
+import { realModeParam } from '../site-links';
+import type { WorkspaceMode } from '../site-links';
 
-type Mode = 'REAL' | 'SIMULATION';
 interface Finding { module: string | null; text: string; points: number; rule_id?: string; quotes: string[] }
 interface Company { name: string; registry_url?: string; registry_checked_at?: string }
 interface RegistryCompany extends Company {
@@ -33,7 +34,7 @@ interface Queue {
 }
 interface PublishedSnapshot {
   generated_at: string;
-  records: (Material & { mode: Mode })[];
+  records: (Material & { mode: WorkspaceMode })[];
 }
 
 @Component({
@@ -71,7 +72,7 @@ export class Workspace {
   };
 
   private readonly query = new URLSearchParams(location.search);
-  protected readonly mode = signal<Mode>(this.query.get('tryb') === 'symulacja' ? 'SIMULATION' : 'REAL');
+  protected readonly mode = signal<WorkspaceMode>(this.query.get('tryb') === realModeParam ? 'REAL' : 'SIMULATION');
   protected readonly module = signal(this.modules.some(item => item.id === this.query.get('modul')) ? this.query.get('modul')! : '');
   protected readonly source = signal('');
   protected readonly risk = signal('');
@@ -122,7 +123,7 @@ export class Workspace {
     });
   }
 
-  protected switchMode(mode: Mode): void {
+  protected switchMode(mode: WorkspaceMode): void {
     if (this.mode() === mode) return;
     this.mode.set(mode);
     this.source.set('');
@@ -138,7 +139,11 @@ export class Workspace {
     this.offset.set(0);
     this.closeDetail();
     const url = new URL(location.href);
-    this.mode() === 'SIMULATION' ? url.searchParams.set('tryb', 'symulacja') : url.searchParams.delete('tryb');
+    if (this.mode() === 'REAL') {
+      url.searchParams.set('tryb', realModeParam);
+    } else {
+      url.searchParams.delete('tryb');
+    }
     this.module() ? url.searchParams.set('modul', this.module()) : url.searchParams.delete('modul');
     history.replaceState(null, '', url);
     void this.refresh();
